@@ -1,4 +1,6 @@
 const express = require('express');
+const axios = require('axios');
+const weatherPersistence = require('../services/weatherPersistence');
 
 const router = express.Router();
 const {
@@ -43,12 +45,12 @@ router.get('/predictions', async (req, res) => {
     const offset = req.query.offset || 0;
 
     // Fetch forecasts with pagination from persistence
-    const forecasts = await require('../services/weatherPersistence').getForecasts({ limit, offset });
+    const forecasts = await weatherPersistence.getForecasts({ limit, offset });
 
     console.log('📊 [API] Raw forecasts from DB:', forecasts.length, 'records (paginated)');
 
     // Get actual weather data for comparison (limited)
-    const actualWeatherData = await require('../services/weatherPersistence').getRecentActualWeather(200);
+    const actualWeatherData = await weatherPersistence.getRecentActualWeather(200);
 
     const formattedForecasts = forecasts.map((forecast) => {
       // Convert timestamp to string format if it's a Date object
@@ -159,7 +161,7 @@ router.get('/predictions-fresh', async (req, res) => {
 
     // Fetch fresh predictions with a reasonable default limit
     const limit = req.query.limit || 500;
-    const forecasts = await require('../services/weatherPersistence').getForecasts({ limit, offset: 0 });
+    const forecasts = await weatherPersistence.getForecasts({ limit, offset: 0 });
 
     console.log('✅ [API] Fresh predictions loaded:', forecasts.length, 'total records from weatherforecast table');
     console.log('📄 [API] Sample forecast:', forecasts[0]);
@@ -200,10 +202,6 @@ router.get('/provinces-summary', async (req, res) => {
 
     // Try to get real data first
     try {
-      const Province = require('../models/provinceModel');
-      const City = require('../models/cityModel');
-      const Weather = require('../models/weatherModel');
-
       // Simple approach - get all provinces first
       const provinces = await Province.findAll({
         include: [{
@@ -219,16 +217,25 @@ router.get('/provinces-summary', async (req, res) => {
       });
 
       const provinceWeatherData = provinces.map((province) => {
-        const cityWeathers = province.cities.map((city) => city.weather).flat().filter((w) => w);
-        const temperatures = cityWeathers.map((w) => w.temperature).filter((t) => t != null);
-        const humidities = cityWeathers.map((w) => w.humidity).filter((h) => h != null);
+        const cityWeathers = province.cities
+          .map((city) => city.weather).flat().filter((w) => w);
+        const temperatures = cityWeathers
+          .map((w) => w.temperature).filter((t) => t != null);
+        const humidities = cityWeathers
+          .map((w) => w.humidity).filter((h) => h != null);
         const rainfalls = cityWeathers.map((w) => w.rainfall).filter((r) => r != null);
 
         return {
           province_name: province.name_th || province.name_en || 'Unknown',
-          avg_temperature: temperatures.length > 0 ? temperatures.reduce((a, b) => a + b, 0) / temperatures.length : 28,
-          avg_humidity: humidities.length > 0 ? humidities.reduce((a, b) => a + b, 0) / humidities.length : 70,
-          avg_rainfall: rainfalls.length > 0 ? rainfalls.reduce((a, b) => a + b, 0) / rainfalls.length : 120,
+          avg_temperature: temperatures.length > 0
+            ? temperatures.reduce((a, b) => a + b, 0) / temperatures.length
+            : 28,
+          avg_humidity: humidities.length > 0
+            ? humidities.reduce((a, b) => a + b, 0) / humidities.length
+            : 70,
+          avg_rainfall: rainfalls.length > 0
+            ? rainfalls.reduce((a, b) => a + b, 0) / rainfalls.length
+            : 120,
           data_points: cityWeathers.length,
         };
       });
@@ -311,7 +318,9 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     if (!cityId || !date || !temperature || !humidity) {
-      return res.status(400).json({ error: 'City, date, temperature, and humidity are required' });
+      return res.status(400).json({
+        error: 'City, date, temperature, and humidity are required',
+      });
     }
 
     const weatherData = await Weather.create({
@@ -400,7 +409,6 @@ router.delete('/:id', async (req, res) => {
 router.get('/test/:cityId', async (req, res) => {
   try {
     const { cityId } = req.params;
-    const axios = require('axios');
 
     // Get city data using Sequelize
     const city = await City.findByPk(cityId);
@@ -482,23 +490,26 @@ router.post('/generate-sample-predictions', async (req, res) => {
 
     const sampleForecasts = [];
 
-    for (let i = 0; i < 30; i++) {
+    const dates = Array.from({ length: 30 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() + i);
+      return { date, index: i };
+    });
 
-      for (const city of cities) {
+    dates.forEach(({ date, index }) => {
+      cities.forEach((city) => {
         sampleForecasts.push({
           city_id: city.id,
           timestamp: date.toISOString().split('T')[0],
           predicted_temperature: 25 + Math.random() * 10,
           predicted_humidity: 60 + Math.random() * 30,
           predicted_rainfall: Math.random() * 50,
-          temperature: i < 7 ? 25 + Math.random() * 10 : null, // Actual values for past 7 days
-          humidity: i < 7 ? 60 + Math.random() * 30 : null,
+          temperature: index < 7 ? 25 + Math.random() * 10 : null, // Actual values for past 7 days
+          humidity: index < 7 ? 60 + Math.random() * 30 : null,
           description: 'LSTM Prediction',
         });
-      }
-    }
+      });
+    });
 
     await WeatherForecast.createBatch(sampleForecasts);
 
