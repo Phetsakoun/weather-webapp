@@ -22,6 +22,31 @@
 - Removed duplicate `createForecastBatch` declaration (was causing Jest parse error)
 - Verified backend tests pass: `npm test --silent` ✅
 
+#### 5. Added code linting & style enforcement
+- Installed and configured ESLint with Airbnb style guide
+- Added npm scripts: `npm run lint` and `npm run lint:fix`
+- Configured to warn on console statements and unused variables
+
+#### 6. Implemented input validation
+- Created `backend/middleware/inputValidation.js` with validators for:
+  - User registration (username, password strength, email)
+  - User login (username, password required)
+  - Weather queries (lat/lon bounds, city ID)
+  - Forecast creation (city_id, timestamp, temperature, humidity, rainfall)
+  - City creation (name, lat/lon, province)
+  - Pagination (limit, offset)
+- Applied validators to key routes: auth, weather, cities
+- Returns 400 with detailed error messages on validation failure
+
+#### 7. Improved CORS configuration
+- Changed from `cors()` (all origins) to configurable CORS with:
+  - Default frontend: `http://localhost:5173` (Vite dev server)
+  - Configurable via `CORS_ORIGIN` environment variable
+  - Allowed methods: GET, POST, PUT, DELETE, OPTIONS, PATCH
+  - Credentials enabled for secure token transmission
+  - Max age: 24 hours for preflight caching
+- Updated `backend/.env.example` with all required variables and detailed comments
+
 ### Secret Rotation Recommendations:
 - **Action Required:** Rotate all secrets in `backend/.env`
 - Store in: GitHub Secrets or CI/CD platform
