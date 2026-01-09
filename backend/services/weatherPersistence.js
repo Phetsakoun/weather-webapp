@@ -31,7 +31,7 @@ async function getForecasts(filters = {}) {
 
   const rows = await sequelize.query(query, {
     replacements: params,
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows;
 }
@@ -49,12 +49,14 @@ async function getRecentActualWeather(limit = 200) {
   `;
   const rows = await sequelize.query(query, {
     replacements: [parseInt(limit)],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows;
 }
 
-async function getRainfallComparison({ city_id = null, date_from = null, date_to = null, limit = 30 } = {}) {
+async function getRainfallComparison({
+  city_id = null, date_from = null, date_to = null, limit = 30,
+} = {}) {
   // Default date_from = 30 days ago if not provided
   const dateFrom = date_from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -88,7 +90,7 @@ async function getRainfallComparison({ city_id = null, date_from = null, date_to
 
   const rows = await sequelize.query(query, {
     replacements: params,
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
 
   return rows;
@@ -114,7 +116,7 @@ async function getHistoricalWeatherData(cityId, days = 30, limit = 1000) {
 
   const rows = await sequelize.query(query, {
     replacements: [cityId, days, parseInt(limit)],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
 
   return rows;
@@ -138,7 +140,7 @@ async function getWeatherStatistics(cityId, days = 30) {
 
   const [stats] = await sequelize.query(query, {
     replacements: [cityId, days],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
 
   return stats;
@@ -146,10 +148,10 @@ async function getWeatherStatistics(cityId, days = 30) {
 
 // Check if a forecast exists for city at timestamp (exact match)
 async function existsForecastForCityAt(cityId, timestamp) {
-  const query = `SELECT id FROM weatherforecast WHERE city_id = ? AND timestamp = ? AND description LIKE '%LSTM Prediction%' LIMIT 1`;
+  const query = 'SELECT id FROM weatherforecast WHERE city_id = ? AND timestamp = ? AND description LIKE \'%LSTM Prediction%\' LIMIT 1';
   const rows = await sequelize.query(query, {
     replacements: [cityId, timestamp],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows && rows.length > 0;
 }
@@ -163,7 +165,7 @@ async function deleteOldLSTMPredictions(cutoffIsoDatetime) {
   `;
   const [result] = await sequelize.query(query, {
     replacements: [cutoffIsoDatetime],
-    type: sequelize.QueryTypes.DELETE
+    type: sequelize.QueryTypes.DELETE,
   });
   return result;
 }
@@ -197,7 +199,7 @@ async function getLSTMPredictions({ cityId = null, days = 7, limit = 100 } = {})
 
   const rows = await sequelize.query(query, {
     replacements: params,
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
 
   return rows;
@@ -205,16 +207,16 @@ async function getLSTMPredictions({ cityId = null, days = 7, limit = 100 } = {})
 
 // --- Export helpers ---
 async function tableExists(tableName) {
-  const query = `SHOW TABLES LIKE ?`;
+  const query = 'SHOW TABLES LIKE ?';
   const rows = await sequelize.query(query, {
     replacements: [tableName],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows && rows.length > 0;
 }
 
 async function getProvinces() {
-  const query = `SELECT id, name_th, name_en, region FROM provinces ORDER BY id`;
+  const query = 'SELECT id, name_th, name_en, region FROM provinces ORDER BY id';
   const rows = await sequelize.query(query, { type: sequelize.QueryTypes.SELECT });
   return rows;
 }
@@ -239,7 +241,7 @@ async function getWeatherData(days = 7) {
     ORDER BY w.timestamp DESC, c.name_th`;
   const rows = await sequelize.query(query, {
     replacements: [parseInt(days)],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows;
 }
@@ -255,7 +257,7 @@ async function getForecastData(days = 7) {
     ORDER BY wf.timestamp ASC, c.name_th`;
   const rows = await sequelize.query(query, {
     replacements: [parseInt(days)],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows;
 }
@@ -277,7 +279,7 @@ async function getWeatherSummary(month, year) {
     ORDER BY c.name_th`;
   const rows = await sequelize.query(query, {
     replacements: [parseInt(month), parseInt(year)],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows;
 }
@@ -315,7 +317,7 @@ async function getDetailedForecast(days = 7) {
     ORDER BY wf.timestamp ASC, c.name_th`;
   const rows = await sequelize.query(query, {
     replacements: [parseInt(days)],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows;
 }
@@ -344,7 +346,7 @@ async function getForecastAccuracy(days = 30) {
     ORDER BY wf.timestamp DESC, c.name_th`;
   const rows = await sequelize.query(query, {
     replacements: [parseInt(days)],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
   return rows;
 }
@@ -357,7 +359,7 @@ async function createForecast(forecastData) {
     predicted_temperature,
     predicted_humidity,
     predicted_rainfall = 0,
-    description = null
+    description = null,
   } = forecastData;
 
   const query = `
@@ -370,7 +372,7 @@ async function createForecast(forecastData) {
   try {
     const [result] = await sequelize.query(query, {
       replacements: [city_id, timestamp, predicted_temperature, predicted_humidity, predicted_rainfall, description],
-      type: sequelize.QueryTypes.INSERT
+      type: sequelize.QueryTypes.INSERT,
     });
     return { id: result, ...forecastData };
   } catch (error) {
@@ -391,21 +393,21 @@ async function createForecastBatch(forecastsData) {
   `;
 
   const values = [];
-  forecastsData.forEach(forecast => {
+  forecastsData.forEach((forecast) => {
     values.push(
       forecast.city_id,
       forecast.timestamp,
       forecast.predicted_temperature,
       forecast.predicted_humidity,
       forecast.predicted_rainfall || 0,
-      forecast.description || null
+      forecast.description || null,
     );
   });
 
   try {
     const [result] = await sequelize.query(query, {
       replacements: values,
-      type: sequelize.QueryTypes.INSERT
+      type: sequelize.QueryTypes.INSERT,
     });
     return { insertedCount: result.affectedRows || forecastsData.length, firstInsertId: result };
   } catch (error) {
@@ -437,7 +439,7 @@ async function updateForecastActualValues(id, actualData) {
   `;
   const [result] = await sequelize.query(query, {
     replacements: [actual_temperature, actual_humidity, actual_rainfall, id],
-    type: sequelize.QueryTypes.UPDATE
+    type: sequelize.QueryTypes.UPDATE,
   });
   return result.affectedRows > 0;
 }
@@ -458,9 +460,9 @@ async function findForecastsByCityAndDateRange(cityId, startDate, endDate) {
   `;
   const rows = await sequelize.query(query, {
     replacements: [cityId, startDate, endDate],
-    type: sequelize.QueryTypes.SELECT
+    type: sequelize.QueryTypes.SELECT,
   });
-  return rows.map(row => ({ ...row, cityName: row.city_name_th || row.city_name_en || 'Unknown City' }));
+  return rows.map((row) => ({ ...row, cityName: row.city_name_th || row.city_name_en || 'Unknown City' }));
 }
 
 async function getLatestForecasts() {
@@ -474,7 +476,7 @@ async function getLatestForecasts() {
     ORDER BY wf.timestamp DESC
   `;
   const rows = await sequelize.query(query, { type: sequelize.QueryTypes.SELECT });
-  return rows.map(row => ({ ...row, cityName: row.city_name_th || row.city_name_en || 'Unknown City' }));
+  return rows.map((row) => ({ ...row, cityName: row.city_name_th || row.city_name_en || 'Unknown City' }));
 }
 
 async function getAccuracyStats(cityId = null, dateFrom = null, dateTo = null) {
@@ -506,7 +508,7 @@ async function getRecentWeatherByCity(cityId, limit = 24) {
   return Weather.findAll({
     where: { city_id: cityId },
     order: [['timestamp', 'DESC']],
-    limit
+    limit,
   });
 }
 
@@ -526,8 +528,28 @@ module.exports = {
   getRecentWeatherByCity,
   createWeatherEntry,
   saveForecast,
-  createForecastBatch
-  , getForecasts, getRecentActualWeather, getRainfallComparison, getHistoricalWeatherData, getWeatherStatistics, existsForecastForCityAt, deleteOldLSTMPredictions, getLSTMPredictions
-  , tableExists, getProvinces, getCitiesWithProvince, getWeatherData, getForecastData, getWeatherSummary, getDetailedForecast, getForecastAccuracy
-  , createForecast, getForecastById, updateForecastActualValues, deleteForecast, findForecastsByCityAndDateRange, getLatestForecasts, getAccuracyStats
+  createForecastBatch,
+  getForecasts,
+  getRecentActualWeather,
+  getRainfallComparison,
+  getHistoricalWeatherData,
+  getWeatherStatistics,
+  existsForecastForCityAt,
+  deleteOldLSTMPredictions,
+  getLSTMPredictions,
+  tableExists,
+  getProvinces,
+  getCitiesWithProvince,
+  getWeatherData,
+  getForecastData,
+  getWeatherSummary,
+  getDetailedForecast,
+  getForecastAccuracy,
+  createForecast,
+  getForecastById,
+  updateForecastActualValues,
+  deleteForecast,
+  findForecastsByCityAndDateRange,
+  getLatestForecasts,
+  getAccuracyStats,
 };

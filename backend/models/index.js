@@ -7,18 +7,18 @@ const WeatherForecast = require('./weatherForecastModel');
 const Notification = require('./notificationModel');
 
 // กำหนด associations
-Province.hasMany(City, { 
-  foreignKey: 'province_id', 
+Province.hasMany(City, {
+  foreignKey: 'province_id',
   as: 'cities',
   onDelete: 'RESTRICT',
-  onUpdate: 'CASCADE'
+  onUpdate: 'CASCADE',
 });
 
-City.belongsTo(Province, { 
-  foreignKey: 'province_id', 
+City.belongsTo(Province, {
+  foreignKey: 'province_id',
   as: 'province',
   onDelete: 'RESTRICT',
-  onUpdate: 'CASCADE'
+  onUpdate: 'CASCADE',
 });
 
 // Weather associations
@@ -26,14 +26,14 @@ City.hasMany(Weather, {
   foreignKey: 'city_id',
   as: 'weatherRecords',
   onDelete: 'CASCADE',
-  onUpdate: 'CASCADE'
+  onUpdate: 'CASCADE',
 });
 
 Weather.belongsTo(City, {
   foreignKey: 'city_id',
   as: 'weatherCity',
   onDelete: 'CASCADE',
-  onUpdate: 'CASCADE'
+  onUpdate: 'CASCADE',
 });
 
 // WeatherForecast associations (optional - if needed)
@@ -50,5 +50,5 @@ module.exports = {
   City,
   Weather,
   WeatherForecast,
-  Notification
+  Notification,
 };

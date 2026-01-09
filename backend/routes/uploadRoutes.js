@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
 const router = express.Router();
 
 // Create uploads directory if it doesn't exist
@@ -17,17 +18,17 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     // Generate unique filename
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
     const ext = path.extname(file.originalname);
     const name = path.basename(file.originalname, ext);
     cb(null, `${name}-${uniqueSuffix}${ext}`);
-  }
+  },
 });
 
 const upload = multer({
-  storage: storage,
+  storage,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
     // Check if file is an image
@@ -36,7 +37,7 @@ const upload = multer({
     } else {
       cb(new Error('Only image files are allowed'), false);
     }
-  }
+  },
 });
 
 // Upload image endpoint
@@ -48,13 +49,13 @@ router.post('/image', upload.single('image'), (req, res) => {
 
     // Return the URL path to the uploaded file
     const fileUrl = `/uploads/${req.file.filename}`;
-    
+
     res.json({
       success: true,
       url: fileUrl,
       filename: req.file.filename,
       originalName: req.file.originalname,
-      size: req.file.size
+      size: req.file.size,
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -69,17 +70,17 @@ router.post('/images', upload.array('images', 10), (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const uploadedFiles = req.files.map(file => ({
+    const uploadedFiles = req.files.map((file) => ({
       url: `/uploads/${file.filename}`,
       filename: file.filename,
       originalName: file.originalname,
-      size: file.size
+      size: file.size,
     }));
 
     res.json({
       success: true,
       files: uploadedFiles,
-      count: uploadedFiles.length
+      count: uploadedFiles.length,
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -90,20 +91,20 @@ router.post('/images', upload.array('images', 10), (req, res) => {
 // Delete image endpoint
 router.delete('/image/:filename', (req, res) => {
   try {
-    const filename = req.params.filename;
+    const { filename } = req.params;
     const filePath = path.join(uploadDir, filename);
-    
+
     // Check if file exists
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: 'File not found' });
     }
-    
+
     // Delete the file
     fs.unlinkSync(filePath);
-    
+
     res.json({
       success: true,
-      message: 'File deleted successfully'
+      message: 'File deleted successfully',
     });
   } catch (error) {
     console.error('Delete error:', error);

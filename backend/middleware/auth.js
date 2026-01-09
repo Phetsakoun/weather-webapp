@@ -17,7 +17,7 @@ const verifyToken = async (req, res, next) => {
       return res.status(500).json({ message: 'Server configuration error' });
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Verify user still exists and is active
     const user = await User.findByPk(decoded.id);
     if (!user) {
@@ -28,14 +28,14 @@ const verifyToken = async (req, res, next) => {
       id: user.id,
       username: user.username,
       email: user.email,
-      role: user.role
+      role: user.role,
     };
-    
+
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Token expired' });
-    } else if (error.name === 'JsonWebTokenError') {
+    } if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Invalid token' });
     }
     console.error('Token verification error:', error);
@@ -73,7 +73,7 @@ const verifyAdminForWrite = (req, res, next) => {
 // Middleware to verify user owns resource or is admin
 const verifyOwnerOrAdmin = (req, res, next) => {
   const userId = req.params.userId || req.body.userId;
-  
+
   if (req.user && (req.user.id == userId || req.user.role === 'admin')) {
     next();
   } else {
@@ -86,5 +86,5 @@ module.exports = {
   verifyAdmin,
   verifyViewer,
   verifyAdminForWrite,
-  verifyOwnerOrAdmin
+  verifyOwnerOrAdmin,
 };

@@ -39,15 +39,15 @@ function formatHistoricalDataForLSTM(historicalData) {
   if (!historicalData || historicalData.length === 0) {
     return null;
   }
-  
-  return historicalData.map(record => ({
+
+  return historicalData.map((record) => ({
     timestamp: record.recorded_at,
     temperature: record.temperature,
     humidity: record.humidity,
     pressure: record.pressure,
     wind_speed: record.wind_speed,
     rainfall: record.rainfall,
-    description: record.description
+    description: record.description,
   }));
 }
 
@@ -55,17 +55,17 @@ function formatHistoricalDataForLSTM(historicalData) {
 async function callLSTMAPI(lat, lon, cityId = null) {
   try {
     console.log(`🔍 Calling LSTM API for coordinates: ${lat}, ${lon}`);
-    
+
     // ດຶງຂໍ້ມູນປະຫວັດສາດຖ້າມີ cityId
     let historicalData = null;
     let weatherStats = null;
-    
+
     if (cityId) {
       try {
         const rawHistoricalData = await getHistoricalWeatherData(cityId, 30);
         historicalData = formatHistoricalDataForLSTM(rawHistoricalData);
         weatherStats = await getWeatherStatistics(cityId, 30);
-        
+
         console.log(`📈 Including ${historicalData ? historicalData.length : 0} historical records for better prediction`);
         if (weatherStats) {
           console.log(`📊 Weather statistics - Avg temp: ${weatherStats.avg_temp?.toFixed(1)}°C, Records: ${weatherStats.record_count}`);
@@ -74,19 +74,19 @@ async function callLSTMAPI(lat, lon, cityId = null) {
         console.warn('⚠️ Could not fetch historical data, proceeding with location-only prediction');
       }
     }
-    
+
     // ເຕືອມ payload ສໍາລັບ LSTM API
     const payload = {
-      lat: lat,
-      lon: lon,
-      timestamp: new Date().toISOString()
+      lat,
+      lon,
+      timestamp: new Date().toISOString(),
     };
-    
+
     // ເພີ່ມຂໍ້ມູນປະຫວັດສາດຖ້າມີ
     if (historicalData && historicalData.length > 0) {
       payload.historical_data = historicalData;
       payload.use_historical = true;
-      
+
       // ເພີ່ມສະຖິຕິສໍາລັບ context
       if (weatherStats) {
         payload.weather_context = {
@@ -97,25 +97,24 @@ async function callLSTMAPI(lat, lon, cityId = null) {
           avg_pressure: weatherStats.avg_pressure,
           avg_wind_speed: weatherStats.avg_wind_speed,
           total_rainfall: weatherStats.total_rainfall,
-          record_count: weatherStats.record_count
+          record_count: weatherStats.record_count,
         };
       }
     }
-    
+
     // ເອີ້ນ API
     const response = await axios.post(`${LSTM_API_BASE_URL}/ingest_and_predict`, payload, {
       timeout: 45000, // ເພີ່ມ timeout ເພາະມີຂໍ້ມູນປະຫວັດສາດ
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     });
 
     if (response.data && response.data.predictions) {
       console.log('✅ LSTM API prediction successful');
       return response.data;
-    } else {
-      throw new Error('Invalid LSTM API response structure');
     }
+    throw new Error('Invalid LSTM API response structure');
   } catch (error) {
     console.error('❌ LSTM API call failed:', error.message);
     throw error;
@@ -126,13 +125,13 @@ async function callLSTMAPI(lat, lon, cityId = null) {
 async function savePredictionToDatabase(predictionData, lat, lon, cityId) {
   try {
     const { predictions } = predictionData;
-    
+
     if (!predictions || !Array.isArray(predictions)) {
       throw new Error('Invalid prediction data structure');
     }
 
     const forecastsToSave = [];
-    
+
     // ເຕີມຂໍ້ມູນການທໍານາຍໃສ່ array ສໍາລັບ batch insert
     for (const prediction of predictions) {
       const predictionTime = new Date(prediction.date);
@@ -140,11 +139,11 @@ async function savePredictionToDatabase(predictionData, lat, lon, cityId) {
       const humidity = prediction.predicted_humidity || null;
       const pressure = prediction.predicted_pressure || null;
       const rainfall = prediction.predicted_rainfall || 0;
-      
+
       // ກວດສອບວ່າມີການທໍານາຍສໍາລັບເວລານີ້ແລ້ວຫຼືບໍ່
       const exists = await persistence.existsForecastForCityAt(
         cityId,
-        predictionTime.toISOString().slice(0, 19).replace('T', ' ')
+        predictionTime.toISOString().slice(0, 19).replace('T', ' '),
       );
 
       if (!exists) {
@@ -154,7 +153,7 @@ async function savePredictionToDatabase(predictionData, lat, lon, cityId) {
           predicted_temperature: temperature,
           predicted_humidity: humidity,
           predicted_rainfall: rainfall,
-          description: `LSTM Prediction - Model v1.0 (${lat}, ${lon})`
+          description: `LSTM Prediction - Model v1.0 (${lat}, ${lon})`,
         });
       }
     }
@@ -167,7 +166,7 @@ async function savePredictionToDatabase(predictionData, lat, lon, cityId) {
     } else {
       console.log('ℹ️ No new forecasts to save (all already exist)');
     }
-    
+
     return result;
   } catch (error) {
     console.error('❌ Error saving LSTM forecasts to database:', error.message);
@@ -179,18 +178,18 @@ async function savePredictionToDatabase(predictionData, lat, lon, cityId) {
 async function runLSTMPredictionForCity(cityConfig) {
   try {
     console.log(`🤖 Running LSTM prediction for ${cityConfig.city}...`);
-    
+
     // ເອີ້ນ LSTM API ພ້ອມກັບ cityId ເພື່ອດຶງຂໍ້ມູນປະຫວັດສາດ
     const predictionData = await callLSTMAPI(cityConfig.lat, cityConfig.lon, cityConfig.cityId);
-    
+
     // ບັນທຶກການທໍານາຍລົງ database
     const savedForecasts = await savePredictionToDatabase(
-      predictionData, 
-      cityConfig.lat, 
-      cityConfig.lon, 
-      cityConfig.cityId
+      predictionData,
+      cityConfig.lat,
+      cityConfig.lon,
+      cityConfig.cityId,
     );
-    
+
     const forecastCount = savedForecasts ? savedForecasts.insertedCount || 0 : 0;
     console.log(`✅ LSTM prediction completed for ${cityConfig.city} - ${forecastCount} forecasts saved`);
     return savedForecasts;
@@ -203,32 +202,32 @@ async function runLSTMPredictionForCity(cityConfig) {
 // ຟັງຊັນປະຕິບັດການທໍານາຍອັດຕະໂນມັດສໍາລັບທຸກເມືອງ
 async function runAutoLSTMPredictions(cityConfigs) {
   console.log('🚀 Starting automatic LSTM predictions for all cities...');
-  
+
   const results = [];
-  
+
   for (const cityConfig of cityConfigs) {
     try {
       const cityResult = await runLSTMPredictionForCity(cityConfig);
       results.push({
         city: cityConfig.city,
         status: 'success',
-        forecasts: cityResult ? cityResult.insertedCount || 0 : 0
+        forecasts: cityResult ? cityResult.insertedCount || 0 : 0,
       });
-      
+
       // ໃຫ້ນອນ 2 ວິນາທີລະຫວ່າງການເອີ້ນແຕ່ລະເມືອງ ເພື່ອບໍ່ໃຫ້ API ຖືກ rate limit
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     } catch (error) {
       results.push({
         city: cityConfig.city,
         status: 'error',
-        error: error.message
+        error: error.message,
       });
     }
   }
-  
+
   console.log('✅ Automatic LSTM predictions completed for all cities');
   console.log('📊 Results summary:', results);
-  
+
   return results;
 }
 
@@ -236,13 +235,13 @@ async function runAutoLSTMPredictions(cityConfigs) {
 async function cleanupOldPredictions() {
   try {
     console.log('🧹 Cleaning up old weather forecasts...');
-    
+
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
+
     // Delegate to persistence
     const result = await persistence.deleteOldLSTMPredictions(sevenDaysAgo.toISOString().slice(0, 19).replace('T', ' '));
-    console.log(`✅ Cleaned up old LSTM forecasts`);
+    console.log('✅ Cleaned up old LSTM forecasts');
     return result;
   } catch (error) {
     console.error('❌ Error cleaning up old forecasts:', error.message);
@@ -253,7 +252,7 @@ async function cleanupOldPredictions() {
 // ຟັງຊັນສໍາລັບການຕັ້ງຄ່າ cron jobs
 function setupLSTMCronJobs(cityConfigs) {
   console.log('⏰ Setting up LSTM auto-prediction cron jobs...');
-  
+
   // ຕັ້ງຄ່າ cron job ສໍາລັບການທໍານາຍອັດຕະໂນມັດທຸກໆ 1 ຊົ່ວໂມງ
   cron.schedule('0 * * * *', async () => {
     console.log('[LSTM-CRON] Running auto predictions every hour...');
@@ -263,7 +262,7 @@ function setupLSTMCronJobs(cityConfigs) {
       console.error('[LSTM-CRON] Error in auto predictions:', error.message);
     }
   });
-  
+
   // ຕັ້ງຄ່າ cron job ສໍາລັບການລຶບຂໍ້ມູນເກົ່າທຸກໆ ມື້ເວລາ 02:00
   cron.schedule('0 2 * * *', async () => {
     console.log('[LSTM-CRON] Running daily cleanup at 2:00 AM...');
@@ -273,7 +272,7 @@ function setupLSTMCronJobs(cityConfigs) {
       console.error('[LSTM-CRON] Error in daily cleanup:', error.message);
     }
   });
-  
+
   console.log('✅ LSTM cron jobs setup completed');
   console.log('📅 Schedule: Auto predictions every hour, cleanup daily at 2:00 AM');
 }
@@ -281,10 +280,10 @@ function setupLSTMCronJobs(cityConfigs) {
 // ຟັງຊັນເລີ່ມຕົ້ນລະບົບ LSTM ອັດຕະໂນມັດ
 function initializeLSTMSystem(cityConfigs) {
   console.log('🚀 Initializing LSTM Auto-Prediction System...');
-  
+
   // ຕັ້ງຄ່າ cron jobs
   setupLSTMCronJobs(cityConfigs);
-  
+
   // ເຮີດການທໍານາຍເລີ່ມຕົ້ນ (ທາງເລືອກ)
   setTimeout(async () => {
     console.log('🔄 Running initial LSTM predictions...');
@@ -294,7 +293,7 @@ function initializeLSTMSystem(cityConfigs) {
       console.error('❌ Initial LSTM predictions failed:', error.message);
     }
   }, 5000); // ລໍຖ້າ 5 ວິນາທີຫຼັງຈາກເຊີບເວີເລີ່ມຕົ້ນ
-  
+
   console.log('✅ LSTM Auto-Prediction System initialized');
 }
 
@@ -302,9 +301,9 @@ function initializeLSTMSystem(cityConfigs) {
 async function getLSTMPredictions(req, res) {
   try {
     const { cityId, days = 7 } = req.query;
-    
+
     const forecasts = await persistence.getLSTMPredictions({ cityId: cityId || null, days: parseInt(days), limit: 100 });
-    res.json({ success: true, forecasts: forecasts, count: forecasts.length });
+    res.json({ success: true, forecasts, count: forecasts.length });
   } catch (error) {
     console.error('Error fetching LSTM forecasts:', error);
     res.status(500).json({ error: 'Failed to fetch LSTM forecasts' });
@@ -314,18 +313,20 @@ async function getLSTMPredictions(req, res) {
 async function triggerManualPrediction(req, res) {
   try {
     const { cityId, lat, lon } = req.body;
-    
+
     if (!cityId || !lat || !lon) {
       return res.status(400).json({ error: 'cityId, lat, and lon are required' });
     }
-    
-    const cityConfig = { cityId, lat, lon, city: `Manual-${cityId}` };
+
+    const cityConfig = {
+      cityId, lat, lon, city: `Manual-${cityId}`,
+    };
     const result = await runLSTMPredictionForCity(cityConfig);
-    
+
     res.json({
       success: true,
       message: 'Manual LSTM prediction completed with historical data',
-      forecasts: result ? result.insertedCount || 0 : 0
+      forecasts: result ? result.insertedCount || 0 : 0,
     });
   } catch (error) {
     console.error('Error in manual prediction:', error);
@@ -337,21 +338,21 @@ async function triggerManualPrediction(req, res) {
 async function getHistoricalDataAPI(req, res) {
   try {
     const { cityId, days = 30 } = req.query;
-    
+
     if (!cityId) {
       return res.status(400).json({ error: 'cityId is required' });
     }
-    
+
     const historicalData = await getHistoricalWeatherData(cityId, days);
     const weatherStats = await getWeatherStatistics(cityId, days);
-    
+
     res.json({
       success: true,
-      cityId: cityId,
-      days: days,
-      historicalData: historicalData,
+      cityId,
+      days,
+      historicalData,
       statistics: weatherStats,
-      count: historicalData.length
+      count: historicalData.length,
     });
   } catch (error) {
     console.error('Error fetching historical data:', error);
@@ -368,5 +369,5 @@ module.exports = {
   cleanupOldPredictions,
   getHistoricalDataAPI,
   getHistoricalWeatherData,
-  getWeatherStatistics
+  getWeatherStatistics,
 };

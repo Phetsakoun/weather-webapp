@@ -1,10 +1,10 @@
+const { Op } = require('sequelize');
 const Weather = require('../models/weatherModel');
 const News = require('../models/newsModel');
 const User = require('../models/userModel');
 const Notification = require('../models/notificationModel');
 const City = require('../models/cityModel');
 const WeatherForecast = require('../models/weatherForecastModel');
-const { Op } = require('sequelize');
 
 // In-memory storage for manual alerts (in production, use database)
 let manualAlerts = [];
@@ -15,20 +15,20 @@ const clearAllManualAlerts = async (req, res) => {
     console.log('🧹 Clearing all manual alerts...');
     const beforeCount = manualAlerts.length;
     manualAlerts = [];
-    
+
     console.log(`✅ Cleared ${beforeCount} manual alerts`);
-    
+
     res.json({
       success: true,
       message: `Cleared ${beforeCount} manual alerts`,
-      clearedCount: beforeCount
+      clearedCount: beforeCount,
     });
   } catch (error) {
     console.error('❌ Error clearing manual alerts:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to clear manual alerts',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -37,45 +37,45 @@ const clearAllManualAlerts = async (req, res) => {
 const getActiveNotifications = async (req, res) => {
   try {
     console.log('🔍 Fetching active notifications for users...');
-    
+
     const notifications = [];
-    
+
     // Get from database (notifications that are not dismissed)
     const dbNotifications = await Notification.findAll({
       where: {
         created_at: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-        }
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+        },
       },
       order: [['created_at', 'DESC']],
-      limit: 10
+      limit: 10,
     });
-    
+
     // Convert database notifications
-    dbNotifications.forEach(notification => {
-      const priority = notification.type === 'error' ? 'critical' : 
-                     notification.type === 'warning' ? 'high' : 'medium';
-      
+    dbNotifications.forEach((notification) => {
+      const priority = notification.type === 'error' ? 'critical'
+        : notification.type === 'warning' ? 'high' : 'medium';
+
       notifications.push({
         id: `db_${notification.id}`,
         title: notification.title,
         message: notification.message,
         type: notification.type || 'system',
-        priority: priority,
+        priority,
         created_at: notification.created_at,
-        source: 'database'
+        source: 'database',
       });
     });
-    
+
     // Add manual alerts
-    const recentManualAlerts = manualAlerts.filter(alert => {
+    const recentManualAlerts = manualAlerts.filter((alert) => {
       const alertTime = new Date(alert.time);
       const now = new Date();
       const hoursDiff = (now - alertTime) / (1000 * 60 * 60);
       return hoursDiff <= 24; // Show alerts from last 24 hours
     });
-    
-    recentManualAlerts.forEach(alert => {
+
+    recentManualAlerts.forEach((alert) => {
       notifications.push({
         id: alert.id,
         title: alert.title,
@@ -83,26 +83,25 @@ const getActiveNotifications = async (req, res) => {
         type: alert.type || 'manual',
         priority: alert.priority.toLowerCase(),
         created_at: alert.time,
-        source: 'manual'
+        source: 'manual',
       });
     });
-    
+
     // Sort by time (newest first)
     notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    
+
     console.log(`✅ Found ${notifications.length} active notifications`);
-    
+
     res.json({
       success: true,
-      data: notifications
+      data: notifications,
     });
-    
   } catch (error) {
     console.error('❌ Error fetching active notifications:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch active notifications',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -110,69 +109,71 @@ const getActiveNotifications = async (req, res) => {
 // Get all notifications with filtering and pagination
 const getNotifications = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      type = null, 
-      priority = null, 
+    const {
+      page = 1,
+      limit = 10,
+      type = null,
+      priority = null,
       status = null,
-      search = null 
+      search = null,
     } = req.query;
 
-    console.log('🔍 Fetching notifications with filters:', { type, priority, status, search });
+    console.log('🔍 Fetching notifications with filters:', {
+      type, priority, status, search,
+    });
 
     const notifications = [];
-    let alertStats = {
+    const alertStats = {
       critical: 0,
       warning: 0,
       info: 0,
-      unread: 0
+      unread: 0,
     };
 
     // Fetch notifications from database
     const dbNotifications = await Notification.findAll({
       order: [['created_at', 'DESC']],
-      limit: 50 // Get recent notifications
+      limit: 50, // Get recent notifications
     });
 
     // Add database notifications to the list
-    dbNotifications.forEach(notification => {
-      const priority = notification.priority || 
-                     (notification.type === 'warning' ? 'High' : 
-                      notification.type === 'error' ? 'Critical' : 'Low');
-      
+    dbNotifications.forEach((notification) => {
+      const priority = notification.priority
+                     || (notification.type === 'warning' ? 'High'
+                       : notification.type === 'error' ? 'Critical' : 'Low');
+
       notifications.push({
         id: `db_${notification.id}`,
         type: notification.type || 'System',
         title: notification.title,
         message: notification.message,
-        priority: priority,
+        priority,
         status: notification.is_read ? 'Read' : 'Unread',
         time: notification.created_at,
-        metadata: { 
+        metadata: {
           source: 'database',
           original_type: notification.type,
-          user_id: notification.user_id
-        }
+          user_id: notification.user_id,
+        },
       });
 
       // Update stats
       if (priority === 'Critical') alertStats.critical++;
       else if (priority === 'High') alertStats.warning++;
       else alertStats.info++;
-      
+
       if (!notification.is_read) alertStats.unread++;
     });
 
     // Add manual alerts to notifications
-    manualAlerts.forEach(alert => {
+    manualAlerts.forEach((alert) => {
       notifications.push(alert);
-      
+
       // Update stats
       if (alert.priority === 'Critical') alertStats.critical++;
       else if (alert.priority === 'High') alertStats.warning++;
       else alertStats.info++;
-      
+
       if (alert.status === 'Unread') alertStats.unread++;
     });
 
@@ -180,27 +181,27 @@ const getNotifications = async (req, res) => {
     const recentWeatherCount = await Weather.count({
       where: {
         timestamp: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-      }
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
     });
 
     // Check for recent news (last 24 hours)
     const recentNewsCount = await News.count({
       where: {
         created_at: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-      }
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
     });
 
     // Check for new users (last 24 hours)
     const newUsersCount = await User.count({
       where: {
         created_at: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-      }
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
     });
 
     // Check for weather alerts (extreme temperatures, high rainfall)
@@ -208,15 +209,15 @@ const getNotifications = async (req, res) => {
       where: {
         [Op.or]: [
           { temperature: { [Op.gt]: 40 } }, // Very hot
-          { temperature: { [Op.lt]: 0 } },  // Freezing
-          { rainfall: { [Op.gt]: 50 } }     // Heavy rain
+          { temperature: { [Op.lt]: 0 } }, // Freezing
+          { rainfall: { [Op.gt]: 50 } }, // Heavy rain
         ],
         timestamp: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
       },
       include: ['weatherCity'],
-      limit: 10
+      limit: 10,
     });
 
     // Generate weather alert notifications
@@ -243,15 +244,15 @@ const getNotifications = async (req, res) => {
         id: `weather_${index + 1}`,
         type: 'Weather',
         title: 'ແຈ້ງເຕືອນສະພາບອາກາດ',
-        message: message,
-        priority: priority,
+        message,
+        priority,
         status: 'Unread',
         time: weather.timestamp,
         metadata: {
           cityId: weather.city_id,
           temperature: weather.temperature,
-          rainfall: weather.rainfall
-        }
+          rainfall: weather.rainfall,
+        },
       });
 
       // Update stats
@@ -263,7 +264,7 @@ const getNotifications = async (req, res) => {
 
     // Add system notifications (only if requested)
     const { includeSystemNotifications = false } = req.query;
-    
+
     if (includeSystemNotifications === 'true') {
       if (recentWeatherCount > 0) {
         notifications.push({
@@ -274,7 +275,7 @@ const getNotifications = async (req, res) => {
           priority: 'Low',
           status: 'Unread',
           time: new Date(),
-          metadata: { count: recentWeatherCount }
+          metadata: { count: recentWeatherCount },
         });
         alertStats.info++;
         alertStats.unread++;
@@ -289,7 +290,7 @@ const getNotifications = async (req, res) => {
           priority: 'Low',
           status: 'Unread',
           time: new Date(),
-          metadata: { count: recentNewsCount }
+          metadata: { count: recentNewsCount },
         });
         alertStats.info++;
         alertStats.unread++;
@@ -304,7 +305,7 @@ const getNotifications = async (req, res) => {
           priority: 'Low',
           status: 'Unread',
           time: new Date(),
-          metadata: { count: newUsersCount }
+          metadata: { count: newUsersCount },
         });
         alertStats.info++;
         alertStats.unread++;
@@ -319,7 +320,7 @@ const getNotifications = async (req, res) => {
         priority: 'Low',
         status: 'Read',
         time: new Date(),
-        metadata: { status: 'healthy' }
+        metadata: { status: 'healthy' },
       });
       alertStats.info++;
     }
@@ -328,29 +329,21 @@ const getNotifications = async (req, res) => {
     let filteredNotifications = notifications;
 
     if (type) {
-      filteredNotifications = filteredNotifications.filter(n => 
-        n.type.toLowerCase() === type.toLowerCase()
-      );
+      filteredNotifications = filteredNotifications.filter((n) => n.type.toLowerCase() === type.toLowerCase());
     }
 
     if (priority) {
-      filteredNotifications = filteredNotifications.filter(n => 
-        n.priority.toLowerCase() === priority.toLowerCase()
-      );
+      filteredNotifications = filteredNotifications.filter((n) => n.priority.toLowerCase() === priority.toLowerCase());
     }
 
     if (status) {
-      filteredNotifications = filteredNotifications.filter(n => 
-        n.status.toLowerCase() === status.toLowerCase()
-      );
+      filteredNotifications = filteredNotifications.filter((n) => n.status.toLowerCase() === status.toLowerCase());
     }
 
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredNotifications = filteredNotifications.filter(n => 
-        n.title.toLowerCase().includes(searchLower) ||
-        n.message.toLowerCase().includes(searchLower)
-      );
+      filteredNotifications = filteredNotifications.filter((n) => n.title.toLowerCase().includes(searchLower)
+        || n.message.toLowerCase().includes(searchLower));
     }
 
     // Apply pagination
@@ -362,25 +355,26 @@ const getNotifications = async (req, res) => {
       success: true,
       data: {
         notifications: paginatedNotifications,
-        alertStats: alertStats,
+        alertStats,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
           total: filteredNotifications.length,
-          totalPages: Math.ceil(filteredNotifications.length / limit)
-        }
-      }
+          totalPages: Math.ceil(filteredNotifications.length / limit),
+        },
+      },
     });
-
   } catch (error) {
     console.error('❌ Error fetching notifications:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Failed to fetch notifications',
       data: {
         notifications: [],
-        alertStats: { critical: 0, warning: 0, info: 0, unread: 0 }
-      }
+        alertStats: {
+          critical: 0, warning: 0, info: 0, unread: 0,
+        },
+      },
     });
   }
 };
@@ -389,30 +383,30 @@ const getNotifications = async (req, res) => {
 const getNotificationCount = async (req, res) => {
   try {
     console.log('🔍 Fetching notification count...');
-    
+
     // Check for recent activity
     const recentWeatherCount = await Weather.count({
       where: {
         timestamp: {
-          [Op.gte]: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours
-        }
-      }
+          [Op.gte]: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours
+        },
+      },
     });
 
     const recentNewsCount = await News.count({
       where: {
         created_at: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours
-        }
-      }
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 hours
+        },
+      },
     });
 
     const newUsersCount = await User.count({
       where: {
         created_at: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 hours
-        }
-      }
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 hours
+        },
+      },
     });
 
     // Check for weather alerts
@@ -421,12 +415,12 @@ const getNotificationCount = async (req, res) => {
         [Op.or]: [
           { temperature: { [Op.gt]: 40 } },
           { temperature: { [Op.lt]: 0 } },
-          { rainfall: { [Op.gt]: 50 } }
+          { rainfall: { [Op.gt]: 50 } },
         ],
         timestamp: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-      }
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
     });
 
     let totalCount = alertCount; // Start with weather alerts
@@ -437,7 +431,6 @@ const getNotificationCount = async (req, res) => {
 
     console.log('✅ Notification count:', totalCount);
     res.json({ count: totalCount });
-    
   } catch (error) {
     console.error('❌ Error fetching notification count:', error);
     res.json({ count: 3 }); // fallback
@@ -447,12 +440,14 @@ const getNotificationCount = async (req, res) => {
 // Create a new notification/alert
 const createNotification = async (req, res) => {
   try {
-    const { type, title, message, priority = 'Medium', recommendations } = req.body;
-    
+    const {
+      type, title, message, priority = 'Medium', recommendations,
+    } = req.body;
+
     if (!type || !title || !message) {
       return res.status(400).json({
         success: false,
-        error: 'Type, title, and message are required'
+        error: 'Type, title, and message are required',
       });
     }
 
@@ -463,10 +458,10 @@ const createNotification = async (req, res) => {
       message,
       priority,
       status: 'Unread',
-      metadata: { 
+      metadata: {
         created_by_admin: true,
-        recommendations: recommendations || null
-      }
+        recommendations: recommendations || null,
+      },
     });
 
     // Also add to manual alerts for immediate display
@@ -478,10 +473,10 @@ const createNotification = async (req, res) => {
       priority,
       status: 'Unread',
       time: new Date(),
-      metadata: { 
+      metadata: {
         created_by_admin: true,
-        recommendations: recommendations || null
-      }
+        recommendations: recommendations || null,
+      },
     };
 
     // Add to manual alerts array
@@ -499,17 +494,16 @@ const createNotification = async (req, res) => {
         message: dbNotification.message,
         priority: dbNotification.priority,
         status: dbNotification.status,
-        created_at: dbNotification.created_at
+        created_at: dbNotification.created_at,
       },
-      message: 'Notification created successfully'
+      message: 'Notification created successfully',
     });
-
   } catch (error) {
     console.error('❌ Error creating notification:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to create notification',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -518,19 +512,18 @@ const createNotification = async (req, res) => {
 const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log('✅ Marked notification as read:', id);
 
     res.json({
       success: true,
-      message: 'Notification marked as read'
+      message: 'Notification marked as read',
     });
-
   } catch (error) {
     console.error('❌ Error marking notification as read:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to mark notification as read'
+      error: 'Failed to mark notification as read',
     });
   }
 };
@@ -542,14 +535,13 @@ const markAllAsRead = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'All notifications marked as read'
+      message: 'All notifications marked as read',
     });
-
   } catch (error) {
     console.error('❌ Error marking all notifications as read:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to mark all notifications as read'
+      error: 'Failed to mark all notifications as read',
     });
   }
 };
@@ -558,12 +550,12 @@ const markAllAsRead = async (req, res) => {
 const deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log('🗑️ Attempting to delete notification:', id);
-    
+
     let actualId = id;
     let notificationSource = 'database';
-    
+
     // Handle different ID formats
     if (id.startsWith('db_')) {
       // Database notification: extract actual ID
@@ -573,7 +565,7 @@ const deleteNotification = async (req, res) => {
       // Manual alert: remove from manual alerts array
       notificationSource = 'manual';
     }
-    
+
     if (notificationSource === 'database') {
       // Delete from database
       const notification = await Notification.findByPk(actualId);
@@ -581,30 +573,29 @@ const deleteNotification = async (req, res) => {
         console.log('❌ Database notification not found:', actualId);
         return res.status(404).json({
           success: false,
-          error: 'Notification not found'
+          error: 'Notification not found',
         });
       }
-      
+
       await notification.destroy();
       console.log('✅ Successfully deleted database notification:', actualId);
-      
     } else if (notificationSource === 'manual') {
       // Delete from manual alerts array
       const initialLength = manualAlerts.length;
-      const filteredAlerts = manualAlerts.filter(alert => alert.id !== id);
-      
+      const filteredAlerts = manualAlerts.filter((alert) => alert.id !== id);
+
       if (filteredAlerts.length === initialLength) {
         console.log('❌ Manual alert not found:', id);
         return res.status(404).json({
           success: false,
-          error: 'Manual alert not found'
+          error: 'Manual alert not found',
         });
       }
-      
+
       // Clear the array and repopulate
       manualAlerts.length = 0;
       manualAlerts.push(...filteredAlerts);
-      
+
       console.log('✅ Successfully deleted manual alert:', id);
     }
 
@@ -612,15 +603,14 @@ const deleteNotification = async (req, res) => {
       success: true,
       message: 'Notification deleted successfully',
       deletedId: id,
-      source: notificationSource
+      source: notificationSource,
     });
-
   } catch (error) {
     console.error('❌ Error deleting notification:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete notification',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -629,33 +619,32 @@ const deleteNotification = async (req, res) => {
 const clearOldNotifications = async (req, res) => {
   try {
     console.log('🧹 Clearing old notifications...');
-    
+
     const { hours = 24 } = req.query; // Default: clear notifications older than 24 hours
     const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
-    
+
     const deleted = await Notification.destroy({
       where: {
         created_at: {
-          [Op.lt]: cutoffTime
-        }
-      }
+          [Op.lt]: cutoffTime,
+        },
+      },
     });
-    
+
     console.log(`✅ Cleared ${deleted} old notifications`);
-    
+
     res.json({
       success: true,
       message: `Cleared ${deleted} old notifications`,
       clearedCount: deleted,
-      cutoffTime: cutoffTime
+      cutoffTime,
     });
-    
   } catch (error) {
     console.error('❌ Error clearing old notifications:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to clear old notifications',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -664,36 +653,35 @@ const clearOldNotifications = async (req, res) => {
 const clearAllNotifications = async (req, res) => {
   try {
     console.log('🧹 Clearing ALL notifications...');
-    
+
     // Clear database notifications
     const deleted = await Notification.destroy({
       where: {},
-      truncate: true
+      truncate: true,
     });
-    
-    console.log(`✅ Cleared all database notifications`);
-    
+
+    console.log('✅ Cleared all database notifications');
+
     // Clear manual alerts
     const manualAlertsCount = manualAlerts.length;
     manualAlerts.length = 0; // Clear the array
-    
+
     console.log(`✅ Cleared ${manualAlertsCount} manual alerts`);
-    
+
     res.json({
       success: true,
       message: 'All notifications cleared',
       clearedCount: {
         database: deleted || 'all',
-        manualAlerts: manualAlertsCount
-      }
+        manualAlerts: manualAlertsCount,
+      },
     });
-    
   } catch (error) {
     console.error('❌ Error clearing all notifications:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to clear all notifications',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -710,19 +698,18 @@ const getSettings = async (req, res) => {
       weatherAlerts: true,
       systemAlerts: true,
       newsAlerts: true,
-      userAlerts: false
+      userAlerts: false,
     };
 
     res.json({
       success: true,
-      data: settings
+      data: settings,
     });
-
   } catch (error) {
     console.error('❌ Error fetching settings:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch settings'
+      error: 'Failed to fetch settings',
     });
   }
 };
@@ -731,20 +718,19 @@ const getSettings = async (req, res) => {
 const updateSettings = async (req, res) => {
   try {
     const settings = req.body;
-    
+
     console.log('✅ Updated notification settings:', settings);
 
     res.json({
       success: true,
       data: settings,
-      message: 'Settings updated successfully'
+      message: 'Settings updated successfully',
     });
-
   } catch (error) {
     console.error('❌ Error updating settings:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update settings'
+      error: 'Failed to update settings',
     });
   }
 };
@@ -752,15 +738,15 @@ const updateSettings = async (req, res) => {
 // Create manual weather alert
 const createWeatherAlert = async (req, res) => {
   try {
-    const { 
-      cityId, 
-      alertType, 
-      severity, 
-      title, 
-      message, 
-      value, 
+    const {
+      cityId,
+      alertType,
+      severity,
+      title,
+      message,
+      value,
       unit,
-      recommendations = []
+      recommendations = [],
     } = req.body;
 
     console.log('🚨 Creating manual weather alert:', { cityId, alertType, severity });
@@ -769,7 +755,7 @@ const createWeatherAlert = async (req, res) => {
     if (!cityId || !alertType || !severity || !title || !message) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: cityId, alertType, severity, title, message'
+        error: 'Missing required fields: cityId, alertType, severity, title, message',
       });
     }
 
@@ -779,7 +765,7 @@ const createWeatherAlert = async (req, res) => {
     if (!city) {
       return res.status(404).json({
         success: false,
-        error: 'City not found'
+        error: 'City not found',
       });
     }
 
@@ -787,24 +773,24 @@ const createWeatherAlert = async (req, res) => {
     const alertData = {
       id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       type: 'Weather',
-      title: title,
-      message: message,
-      priority: severity === 'critical' ? 'Critical' : 
-               severity === 'warning' ? 'High' : 
-               severity === 'info' ? 'Medium' : 'Low',
+      title,
+      message,
+      priority: severity === 'critical' ? 'Critical'
+        : severity === 'warning' ? 'High'
+          : severity === 'info' ? 'Medium' : 'Low',
       status: 'Unread',
       time: new Date(),
       metadata: {
-        cityId: cityId,
+        cityId,
         cityName: city.name_th || city.name_en,
-        alertType: alertType,
-        severity: severity,
-        value: value,
-        unit: unit,
-        recommendations: recommendations,
+        alertType,
+        severity,
+        value,
+        unit,
+        recommendations,
         isManual: true,
-        createdBy: 'admin'
-      }
+        createdBy: 'admin',
+      },
     };
 
     console.log('✅ Manual weather alert created:', alertData);
@@ -815,15 +801,14 @@ const createWeatherAlert = async (req, res) => {
     res.json({
       success: true,
       data: alertData,
-      message: 'Weather alert created successfully'
+      message: 'Weather alert created successfully',
     });
-
   } catch (error) {
     console.error('❌ Error creating weather alert:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to create weather alert',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -837,8 +822,8 @@ const deleteWeatherAlert = async (req, res) => {
 
     // Remove from manual alerts array
     const initialLength = manualAlerts.length;
-    manualAlerts = manualAlerts.filter(alert => alert.id !== alertId);
-    
+    manualAlerts = manualAlerts.filter((alert) => alert.id !== alertId);
+
     if (manualAlerts.length < initialLength) {
       console.log('✅ Weather alert removed from memory');
     } else {
@@ -847,15 +832,14 @@ const deleteWeatherAlert = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Weather alert deleted successfully'
+      message: 'Weather alert deleted successfully',
     });
-
   } catch (error) {
     console.error('❌ Error deleting weather alert:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete weather alert',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -868,28 +852,27 @@ const getCitiesForAlerts = async (req, res) => {
     const City = require('../models/cityModel');
     const cities = await City.findAll({
       attributes: ['id', 'name_th', 'name_en', 'province_id'],
-      order: [['name_th', 'ASC']]
+      order: [['name_th', 'ASC']],
     });
 
-    const formattedCities = cities.map(city => ({
+    const formattedCities = cities.map((city) => ({
       id: city.id,
       name: city.name_th || city.name_en,
       name_en: city.name_en,
-      province_id: city.province_id
+      province_id: city.province_id,
     }));
 
     res.json({
       success: true,
       data: formattedCities,
-      count: formattedCities.length
+      count: formattedCities.length,
     });
-
   } catch (error) {
     console.error('❌ Error fetching cities for alerts:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch cities',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -897,16 +880,20 @@ const getCitiesForAlerts = async (req, res) => {
 // Broadcast notification to all users
 const broadcastNotification = async (req, res) => {
   try {
-    const { title, message, type = 'System', priority = 'medium' } = req.body;
-    
-    console.log('📢 Broadcasting notification:', { title, message, type, priority });
-    
+    const {
+      title, message, type = 'System', priority = 'medium',
+    } = req.body;
+
+    console.log('📢 Broadcasting notification:', {
+      title, message, type, priority,
+    });
+
     // In a real implementation, this would:
     // 1. Send push notifications to all users
     // 2. Send email notifications
     // 3. Update WebSocket connections
     // 4. Log the broadcast to database
-    
+
     // For now, we'll just create a notification in the database
     const notification = await Notification.create({
       title,
@@ -915,12 +902,12 @@ const broadcastNotification = async (req, res) => {
       priority,
       status: 'sent',
       created_at: new Date(),
-      updated_at: new Date()
+      updated_at: new Date(),
     });
-    
+
     // Simulate broadcast delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     res.json({
       success: true,
       message: 'Notification broadcasted successfully',
@@ -931,16 +918,15 @@ const broadcastNotification = async (req, res) => {
         type,
         priority,
         broadcastedAt: new Date().toISOString(),
-        estimatedReach: 1000 // Mock number of users reached
-      }
+        estimatedReach: 1000, // Mock number of users reached
+      },
     });
-    
   } catch (error) {
     console.error('❌ Error broadcasting notification:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to broadcast notification',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -949,17 +935,17 @@ const broadcastNotification = async (req, res) => {
 const checkLSTM = async (req, res) => {
   try {
     console.log('🧠 Running LSTM weather analysis...');
-    
+
     // Check if LSTM analysis was run recently (prevent duplicate alerts)
     const recentLSTMAlerts = await Notification.count({
       where: {
         type: 'LSTM',
         created_at: {
-          [Op.gte]: new Date(Date.now() - 30 * 60 * 1000) // 30 minutes
-        }
-      }
+          [Op.gte]: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes
+        },
+      },
     });
-    
+
     if (recentLSTMAlerts > 0) {
       console.log(`⏭️ LSTM analysis skipped - ${recentLSTMAlerts} recent alerts found`);
       return res.json({
@@ -968,20 +954,20 @@ const checkLSTM = async (req, res) => {
         data: {
           status: 'skipped',
           recent_alerts: recentLSTMAlerts,
-          analysis_run: false
-        }
+          analysis_run: false,
+        },
       });
     }
-    
+
     // In a real implementation, this would:
     // 1. Call the LSTM model API
     // 2. Analyze current weather data
     // 3. Generate predictions
     // 4. Create alerts if anomalies are detected
-    
+
     // For now, we'll simulate LSTM analysis
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     // Mock LSTM results
     const mockResults = {
       analyzed_cities: 18,
@@ -992,50 +978,49 @@ const checkLSTM = async (req, res) => {
           temperature_anomaly: false,
           rainfall_anomaly: Math.random() > 0.7,
           wind_anomaly: false,
-          confidence: 0.92
+          confidence: 0.92,
         },
         {
           city: 'Luang Prabang',
           temperature_anomaly: Math.random() > 0.8,
           rainfall_anomaly: false,
           wind_anomaly: false,
-          confidence: 0.87
-        }
+          confidence: 0.87,
+        },
       ],
       recommendations: [
         'Monitor rainfall patterns in northern regions',
-        'Temperature within normal range for season'
-      ]
+        'Temperature within normal range for season',
+      ],
     };
-    
+
     // If anomalies are detected, create only ONE alert
     if (mockResults.anomalies_detected > 0) {
       const alert = await Notification.create({
-        title: `LSTM ແຈ້ງເຕືອນອາກາດຜິດປົກກະຕິ`,
+        title: 'LSTM ແຈ້ງເຕືອນອາກາດຜິດປົກກະຕິ',
         message: `ພົບຄວາມຜິດປົກກະຕິ ${mockResults.anomalies_detected} ລາຍການໃນຂໍ້ມູນອາກາດຈາກການວິເຄາະ AI - ກະລຸນາຕິດຕາມຢ່າງໃກ້ຊິດ`,
         type: 'LSTM',
         priority: 'Low', // Changed from 'high' to 'Low' to reduce noise
         status: 'active',
         created_at: new Date(),
-        updated_at: new Date()
+        updated_at: new Date(),
       });
-      
+
       mockResults.alerts_created = 1;
       console.log('✅ LSTM alert created:', alert.id);
     }
-    
+
     res.json({
       success: true,
       message: 'LSTM analysis completed',
-      data: mockResults
+      data: mockResults,
     });
-    
   } catch (error) {
     console.error('❌ Error in LSTM analysis:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to run LSTM analysis',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -1043,24 +1028,24 @@ const checkLSTM = async (req, res) => {
 // Weather Alert Logic based on LSTM predictions and current conditions
 const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) => {
   const alerts = [];
-  
+
   // Define alert thresholds according to new requirements
   const thresholds = {
-    heavyRain: 50,        // ມມ./ຊົ່ວໂມງ
-    strongWind: 40,       // ກມ./ຊມ.
-    hotTemp: 30,          // °C
-    coldTemp: 15,         // °C
-    lowPressure: 1000,    // hPa
-    lightning: 10         // ຄັ້ງໃນ 10 ນາທີ
+    heavyRain: 50, // ມມ./ຊົ່ວໂມງ
+    strongWind: 40, // ກມ./ຊມ.
+    hotTemp: 30, // °C
+    coldTemp: 15, // °C
+    lowPressure: 1000, // hPa
+    lightning: 10, // ຄັ້ງໃນ 10 ນາທີ
   };
 
   try {
     // Check current weather conditions
     if (weatherData) {
       const temp = weatherData.temperature;
-      const rainfall = weatherData.rainfall;
-      const windSpeed = weatherData.windSpeed;
-      const pressure = weatherData.pressure;
+      const { rainfall } = weatherData;
+      const { windSpeed } = weatherData;
+      const { pressure } = weatherData;
       const cityName = weatherData.city?.name || weatherData.location || 'ບໍ່ຮູ້';
 
       // 1. ຝົນຕົກໜັກ - Heavy Rain Alert
@@ -1070,16 +1055,16 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
           type: 'rain',
           title: `⚠️ ແຈ້ງເຕືອນຝົນຕົກໜັກ - ${cityName}`,
           message: `ປະລິມານຝົນຂະນະນີ້ ${rainfall.toFixed(1)} ມມ./ຊົ່ວໂມງ (ເກີນເກນ ${thresholds.heavyRain} ມມ.)`,
-          severity: severity,
+          severity,
           priority: severity,
           location: cityName,
           recommendations: [
             'ຫຼີກເວັ້ນການເດີນທາງທີ່ບໍ່ຈຳເປັນ',
             'ລະວັງນ້ຳຖ້ວມກະທັນຫັນ',
             'ຕິດຕາມຂ່າວສານຢ່າງຕໍ່ເນື່ອງ',
-            'ກຽມອຸປະກອນສຸກເສີນ'
+            'ກຽມອຸປະກອນສຸກເສີນ',
           ].join('\n'),
-          weatherData: { rainfall, cityName }
+          weatherData: { rainfall, cityName },
         });
       }
 
@@ -1096,9 +1081,9 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
             'ຫຼີກເວັ້ນການຢູ່ກາງແຈ້ງ',
             'ລະວັງວັດຖຸທີ່ອາດຫຼຸດຫຼົ່ນ',
             'ກວດເບິ່ງຫຼັງຄາແລະປະຕູໜ້າຕ່າງ',
-            'ຫຼີກເວັ້ນການຂັບຂີ່ຍານພາຫະນະ'
+            'ຫຼີກເວັ້ນການຂັບຂີ່ຍານພາຫະນະ',
           ].join('\n'),
-          weatherData: { windSpeed, cityName }
+          weatherData: { windSpeed, cityName },
         });
       }
 
@@ -1115,9 +1100,9 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
             'ຫຼີກເວັ້ນການອອກກຳລັງກາຍກາງແຈ້ງ',
             'ດື່ມນ້ຳໃສໃຫ້ພຽງພໍ',
             'ຢູ່ໃນທີ່ຮ່ມຫຼືປັບອາກາດ',
-            'ໃສ່ເສື້ອຜ້າສີອ່ອນແລະຫຼວມ'
+            'ໃສ່ເສື້ອຜ້າສີອ່ອນແລະຫຼວມ',
           ].join('\n'),
-          weatherData: { temperature: temp, cityName }
+          weatherData: { temperature: temp, cityName },
         });
       }
 
@@ -1134,9 +1119,9 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
             'ໃສ່ເສື້ອຜ້າຫນາແລະອຸ່ນ',
             'ລະວັງຄວາມສ່ຽງຈາກຫຼອດເລືອດຫົວໃຈ',
             'ດູແລຜູ້ສູງອາຍຸແລະເດັກນ້ອຍ',
-            'ກວດເບິ່ງລະບົບເຮັດຄວາມອຸ່ນໃນບ້ານ'
+            'ກວດເບິ່ງລະບົບເຮັດຄວາມອຸ່ນໃນບ້ານ',
           ].join('\n'),
-          weatherData: { temperature: temp, cityName }
+          weatherData: { temperature: temp, cityName },
         });
       }
 
@@ -1153,9 +1138,9 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
             'ກຽມພ້ອມສຳລັບພາຍຸຫຼືລົມແຮງ',
             'ຕິດຕາມພະຍາກອນອາກາດຢ່າງໃກ້ຊິດ',
             'ກວດເບິ່ງຄວາມແຂງແຮງຂອງບ້ານ',
-            'ກຽມແຜນການຍ້າຍຖິ່ນຖ້າບູສາມາດ'
+            'ກຽມແຜນການຍ້າຍຖິ່ນຖ້າບູສາມາດ',
           ].join('\n'),
-          weatherData: { pressure, cityName }
+          weatherData: { pressure, cityName },
         });
       }
 
@@ -1172,9 +1157,9 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
             'ຢູ່ໃນອາຄານທີ່ປອດໄພ',
             'ຫຼີກເວັ້ນການໃຊ້ອຸປະກອນໄຟຟ້າ',
             'ຫ້າມຢູ່ໃຕ້ຕົ້ນໄມ້ຫຼືເສົາໄຟຟ້າ',
-            'ລໍຖ້າໃຫ້ພາຍຸຜ່ານພົ້ນກ່ອນອອກຈາກບ້ານ'
+            'ລໍຖ້າໃຫ້ພາຍຸຜ່ານພົ້ນກ່ອນອອກຈາກບ້ານ',
           ].join('\n'),
-          weatherData: { lightning: weatherData.lightning, cityName }
+          weatherData: { lightning: weatherData.lightning, cityName },
         });
       }
     }
@@ -1186,7 +1171,7 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
         const predRainfall = prediction.predicted_rainfall || 0;
         const predDate = new Date(prediction.timestamp);
         const daysDiff = Math.ceil((predDate - new Date()) / (1000 * 60 * 60 * 24));
-        
+
         // Future hot temperature alert
         if (predTemp > thresholds.hotTemp) {
           alerts.push({
@@ -1200,9 +1185,9 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
               'ກຽມແຜນການຫຼີກເວັ້ນຄວາມຮ້ອນ',
               'ຈັດເຕີມນ້ຳດື່ມສຳຮອງ',
               'ກວດເບິ່ງລະບົບປັບອາກາດ',
-              'ວາງແຜນກິດຈະກຳໃນເວລາທີ່ເໝາະສົມ'
+              'ວາງແຜນກິດຈະກຳໃນເວລາທີ່ເໝາະສົມ',
             ].join('\n'),
-            weatherData: { temperature: predTemp, forecast: true }
+            weatherData: { temperature: predTemp, forecast: true },
           });
         }
 
@@ -1219,9 +1204,9 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
               'ກຽມເສື້ອຜ້າຫນາແລະອຸ່ນ',
               'ກວດເບິ່ງລະບົບເຮັດຄວາມອຸ່ນ',
               'ກຽມແຜນດູແລຜູ້ສູງອາຍຸ',
-              'ວາງແຜນກິດຈະກຳໃນຮ່ມ'
+              'ວາງແຜນກິດຈະກຳໃນຮ່ມ',
             ].join('\n'),
-            weatherData: { temperature: predTemp, forecast: true }
+            weatherData: { temperature: predTemp, forecast: true },
           });
         }
 
@@ -1232,16 +1217,16 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
             type: 'rain',
             title: `🔮 ພະຍາກອນຝົນຕົກໜັກ (${daysDiff} ມື້ຂ້າງໜ້າ)`,
             message: `ຄາດການປະລິມານຝົນ ${predRainfall.toFixed(1)} ມມ. ໃນວັນທີ່ ${predDate.toLocaleDateString('lo-LA')}`,
-            severity: severity,
+            severity,
             priority: severity,
             location: prediction.cityName || 'ບໍ່ຮູ້',
             recommendations: [
               'ກຽມແຜນການເດີນທາງທາງເລືອກ',
               'ກວດເບິ່ງລະບົບລະບາຍນ້ຳ',
               'ກຽມອຸປະກອນສຳຮອງ',
-              'ຕິດຕາມຂ່າວສານຢ່າງຕໍ່ເນື່ອງ'
+              'ຕິດຕາມຂ່າວສານຢ່າງຕໍ່ເນື່ອງ',
             ].join('\n'),
-            weatherData: { rainfall: predRainfall, forecast: true }
+            weatherData: { rainfall: predRainfall, forecast: true },
           });
         }
       }
@@ -1258,7 +1243,7 @@ const checkWeatherConditionsAndAlert = async (weatherData, predictions = null) =
 const processWeatherAlerts = async (alerts) => {
   try {
     const processedAlerts = [];
-    
+
     for (const alert of alerts) {
       // Check if similar alert already exists in recent time
       const existingAlert = await Notification.findOne({
@@ -1266,9 +1251,9 @@ const processWeatherAlerts = async (alerts) => {
           type: alert.type,
           title: alert.title,
           created_at: {
-            [Op.gte]: new Date(Date.now() - 2 * 60 * 60 * 1000) // Last 2 hours
-          }
-        }
+            [Op.gte]: new Date(Date.now() - 2 * 60 * 60 * 1000), // Last 2 hours
+          },
+        },
       });
 
       if (!existingAlert) {
@@ -1284,8 +1269,8 @@ const processWeatherAlerts = async (alerts) => {
             recommendations: alert.recommendations,
             weatherData: alert.weatherData,
             autoGenerated: true,
-            alertType: 'weather_condition'
-          }
+            alertType: 'weather_condition',
+          },
         });
 
         // Add to manual alerts for immediate display
@@ -1302,8 +1287,8 @@ const processWeatherAlerts = async (alerts) => {
             recommendations: alert.recommendations,
             weatherData: alert.weatherData,
             autoGenerated: true,
-            alertType: 'weather_condition'
-          }
+            alertType: 'weather_condition',
+          },
         };
 
         manualAlerts.push(manualAlert);
@@ -1324,21 +1309,21 @@ const processWeatherAlerts = async (alerts) => {
 const checkAndCreateWeatherAlerts = async () => {
   try {
     console.log('🔍 Checking weather conditions for alerts...');
-    
+
     // Get current weather data from database
     const currentWeatherData = await Weather.findAll({
       include: [{
         model: City,
         as: 'weatherCity',
-        attributes: ['id', 'name_th', 'name_en']
+        attributes: ['id', 'name_th', 'name_en'],
       }],
       order: [['timestamp', 'DESC']],
-      limit: 18 // All cities in Laos
+      limit: 18, // All cities in Laos
     });
 
     // Get LSTM predictions - Skip for now since table schema is being updated
     const predictions = [];
-    
+
     // TODO: Re-enable when WeatherForecast table is properly configured
     // const predictions = await WeatherForecast.findAll({
     //   date_from: new Date().toISOString().split('T')[0],
@@ -1356,27 +1341,26 @@ const checkAndCreateWeatherAlerts = async () => {
         windSpeed: weather.windSpeed || 0,
         pressure: weather.pressure || 1013,
         city: weather.weatherCity,
-        location: weather.weatherCity?.name_th || weather.weatherCity?.name_en || 'ບໍ່ຮູ້'
+        location: weather.weatherCity?.name_th || weather.weatherCity?.name_en || 'ບໍ່ຮູ້',
       };
 
       // Get predictions for this city
-      const cityPredictions = predictions.filter(p => p.city_id === weather.city_id).map(p => ({
+      const cityPredictions = predictions.filter((p) => p.city_id === weather.city_id).map((p) => ({
         predicted_temperature: p.predicted_temperature,
         predicted_rainfall: p.predicted_rainfall || 0,
         timestamp: p.timestamp,
-        cityName: p.city_name
+        cityName: p.city_name,
       }));
-      
+
       const alerts = await checkWeatherConditionsAndAlert(weatherData, cityPredictions);
       allAlerts = allAlerts.concat(alerts);
     }
 
     // Process and store alerts
     const processedAlerts = await processWeatherAlerts(allAlerts);
-    
+
     console.log(`✅ Processed ${processedAlerts.length} weather alerts`);
     return processedAlerts;
-    
   } catch (error) {
     console.error('❌ Error checking weather alerts:', error);
     return [];
@@ -1387,29 +1371,29 @@ const checkAndCreateWeatherAlerts = async () => {
 const getUserWeatherAlerts = async (req, res) => {
   try {
     console.log('🔍 Fetching weather alerts for user...');
-    
+
     // Run weather condition checks
     const newAlerts = await checkAndCreateWeatherAlerts();
-    
+
     // Get all active alerts (from database and manual alerts)
     const activeAlerts = [];
-    
+
     // Get recent database notifications (weather alerts)
     const dbNotifications = await Notification.findAll({
       where: {
         created_at: {
-          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+          [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
         },
         type: {
-          [Op.in]: ['weather', 'rain', 'storm', 'drought', 'flood', 'emergency']
-        }
+          [Op.in]: ['weather', 'rain', 'storm', 'drought', 'flood', 'emergency'],
+        },
       },
       order: [['created_at', 'DESC']],
-      limit: 10
+      limit: 10,
     });
 
     // Convert database notifications
-    dbNotifications.forEach(notification => {
+    dbNotifications.forEach((notification) => {
       const metadata = notification.metadata || {};
       activeAlerts.push({
         id: `db_${notification.id}`,
@@ -1422,22 +1406,22 @@ const getUserWeatherAlerts = async (req, res) => {
         location: metadata.location,
         recommendations: metadata.recommendations,
         source: 'database',
-        autoGenerated: metadata.autoGenerated || false
+        autoGenerated: metadata.autoGenerated || false,
       });
     });
 
     // Add manual alerts that are weather-related
-    const weatherManualAlerts = manualAlerts.filter(alert => {
+    const weatherManualAlerts = manualAlerts.filter((alert) => {
       const alertTime = new Date(alert.time);
       const now = new Date();
       const hoursDiff = (now - alertTime) / (1000 * 60 * 60);
-      
+
       // Show alerts from last 24 hours that are weather-related
-      return hoursDiff <= 24 && 
-             ['weather', 'rain', 'storm', 'drought', 'flood', 'emergency'].includes(alert.type);
+      return hoursDiff <= 24
+             && ['weather', 'rain', 'storm', 'drought', 'flood', 'emergency'].includes(alert.type);
     });
 
-    weatherManualAlerts.forEach(alert => {
+    weatherManualAlerts.forEach((alert) => {
       activeAlerts.push({
         id: alert.id,
         title: alert.title,
@@ -1449,20 +1433,22 @@ const getUserWeatherAlerts = async (req, res) => {
         location: alert.metadata?.location,
         recommendations: alert.metadata?.recommendations,
         source: 'manual',
-        autoGenerated: alert.metadata?.autoGenerated || false
+        autoGenerated: alert.metadata?.autoGenerated || false,
       });
     });
 
     // Sort by priority and time
     activeAlerts.sort((a, b) => {
-      const priorityOrder = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
+      const priorityOrder = {
+        Critical: 4, High: 3, Medium: 2, Low: 1,
+      };
       const aPriority = priorityOrder[a.priority] || 1;
       const bPriority = priorityOrder[b.priority] || 1;
-      
+
       if (aPriority !== bPriority) {
         return bPriority - aPriority; // Higher priority first
       }
-      
+
       return new Date(b.created_at) - new Date(a.created_at); // Newer first
     });
 
@@ -1476,19 +1462,18 @@ const getUserWeatherAlerts = async (req, res) => {
       data: topAlerts,
       stats: {
         total: activeAlerts.length,
-        critical: activeAlerts.filter(a => a.priority === 'Critical').length,
-        high: activeAlerts.filter(a => a.priority === 'High').length,
-        medium: activeAlerts.filter(a => a.priority === 'Medium').length,
-        low: activeAlerts.filter(a => a.priority === 'Low').length
-      }
+        critical: activeAlerts.filter((a) => a.priority === 'Critical').length,
+        high: activeAlerts.filter((a) => a.priority === 'High').length,
+        medium: activeAlerts.filter((a) => a.priority === 'Medium').length,
+        low: activeAlerts.filter((a) => a.priority === 'Low').length,
+      },
     });
-
   } catch (error) {
     console.error('❌ Error fetching weather alerts:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch weather alerts',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -1508,15 +1493,15 @@ const scheduleWeatherAlertCheck = () => {
 // Initialize weather alert system
 const initializeWeatherAlertSystem = () => {
   console.log('🚀 Initializing weather alert system...');
-  
+
   // Run initial check
   setTimeout(async () => {
     await checkAndCreateWeatherAlerts();
   }, 5000); // Wait 5 seconds after server start
-  
+
   // Schedule periodic checks
   scheduleWeatherAlertCheck();
-  
+
   console.log('✅ Weather alert system initialized');
 };
 
@@ -1542,5 +1527,5 @@ module.exports = {
   processWeatherAlerts,
   checkAndCreateWeatherAlerts,
   getUserWeatherAlerts,
-  initializeWeatherAlertSystem
+  initializeWeatherAlertSystem,
 };

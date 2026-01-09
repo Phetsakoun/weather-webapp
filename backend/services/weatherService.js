@@ -1,10 +1,10 @@
 // backend/services/weatherService.js
-const axios = require('axios')
-require('dotenv').config()
+const axios = require('axios');
+require('dotenv').config();
 
-const TOMORROW_API_KEY = process.env.TOMORROW_API_KEY
-const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000/ingest_and_predict'
+const { TOMORROW_API_KEY } = process.env;
+const { OPENWEATHER_API_KEY } = process.env;
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000/ingest_and_predict';
 
 /**
  * OpenWeatherMap API - Current Weather
@@ -15,16 +15,16 @@ async function fetchOpenWeatherCurrent(lat, lon) {
   try {
     const resp = await axios.get('https://api.openweathermap.org/data/2.5/weather', {
       params: {
-        lat: lat,
-        lon: lon,
+        lat,
+        lon,
         appid: OPENWEATHER_API_KEY,
         units: 'metric',
-        lang: 'en'
+        lang: 'en',
       },
-      timeout: 10000
+      timeout: 10000,
     });
 
-    const data = resp.data;
+    const { data } = resp;
     return {
       temperature: data.main.temp,
       humidity: data.main.humidity,
@@ -38,7 +38,7 @@ async function fetchOpenWeatherCurrent(lat, lon) {
       cloudiness: data.clouds.all,
       sunrise: data.sys.sunrise,
       sunset: data.sys.sunset,
-      source: 'openweathermap'
+      source: 'openweathermap',
     };
   } catch (error) {
     console.error('❌ OpenWeatherMap API Error:', error.message);
@@ -56,30 +56,30 @@ async function fetchOpenWeatherForecast(lat, lon) {
   try {
     const resp = await axios.get('https://api.openweathermap.org/data/2.5/forecast', {
       params: {
-        lat: lat,
-        lon: lon,
+        lat,
+        lon,
         appid: OPENWEATHER_API_KEY,
         units: 'metric',
-        lang: 'en'
+        lang: 'en',
       },
-      timeout: 10000
+      timeout: 10000,
     });
 
-    const data = resp.data;
+    const { data } = resp;
     const dailyData = {};
 
     // Group forecast data by day
-    data.list.forEach(item => {
+    data.list.forEach((item) => {
       const date = new Date(item.dt * 1000).toDateString();
       if (!dailyData[date]) {
         dailyData[date] = {
-          date: date,
+          date,
           temps: [],
           humidity: [],
           pressure: [],
           windSpeed: [],
           weather: [],
-          precipitation: 0
+          precipitation: 0,
         };
       }
 
@@ -88,14 +88,14 @@ async function fetchOpenWeatherForecast(lat, lon) {
       dailyData[date].pressure.push(item.main.pressure);
       dailyData[date].windSpeed.push(item.wind.speed);
       dailyData[date].weather.push(item.weather[0]);
-      
+
       // Add precipitation (rain + snow)
       if (item.rain) dailyData[date].precipitation += (item.rain['3h'] || 0);
       if (item.snow) dailyData[date].precipitation += (item.snow['3h'] || 0);
     });
 
     // Convert to daily summaries
-    const dailyForecast = Object.values(dailyData).map(day => ({
+    const dailyForecast = Object.values(dailyData).map((day) => ({
       time: new Date(day.date).toISOString(),
       values: {
         temperatureMax: Math.max(...day.temps),
@@ -107,8 +107,8 @@ async function fetchOpenWeatherForecast(lat, lon) {
         precipitation: day.precipitation,
         weatherCode: day.weather[0].id,
         weatherDescription: day.weather[0].description,
-        weatherIcon: day.weather[0].icon
-      }
+        weatherIcon: day.weather[0].icon,
+      },
     }));
 
     return dailyForecast;
@@ -127,24 +127,24 @@ async function fetchRealtime(lat, lon) {
   try {
     const resp = await axios.get('https://api.tomorrow.io/v4/timelines', {
       params: {
-        apikey:    TOMORROW_API_KEY,
-        location:  `${lat},${lon}`,
-        fields:    ['temperature','humidity','pressureSeaLevel','windSpeed','precipitationIntensity','weatherCode'],
-        timesteps: ['current'],    // ขอข้อมูลปัจจุบัน
-        units:     'metric'
+        apikey: TOMORROW_API_KEY,
+        location: `${lat},${lon}`,
+        fields: ['temperature', 'humidity', 'pressureSeaLevel', 'windSpeed', 'precipitationIntensity', 'weatherCode'],
+        timesteps: ['current'], // ขอข้อมูลปัจจุบัน
+        units: 'metric',
       },
-      timeout: 10000 // 10 seconds timeout
+      timeout: 10000, // 10 seconds timeout
     });
-    
+
     const v = resp.data.data.timelines[0].intervals[0].values;
     return {
       temperature: v.temperature,
-      humidity:    v.humidity,
-      pressure:    v.pressureSeaLevel,
-      windSpeed:   v.windSpeed,
-      rainfall:    v.precipitationIntensity || 0,
+      humidity: v.humidity,
+      pressure: v.pressureSeaLevel,
+      windSpeed: v.windSpeed,
+      rainfall: v.precipitationIntensity || 0,
       weatherCode: v.weatherCode,
-      source: 'tomorrow.io'
+      source: 'tomorrow.io',
     };
   } catch (error) {
     console.error('❌ Tomorrow.io API Error:', error.message);
@@ -163,48 +163,48 @@ async function fetchApiForecast(lat, lon) {
   // ขอ Tomorrow.io 4 วัน (รวมวันนี้)
   const resp = await axios.get('https://api.tomorrow.io/v4/timelines', {
     params: {
-      apikey:     TOMORROW_API_KEY,
-      location:   `${lat},${lon}`,
-      fields:     ['temperatureMax','temperatureMin','precipitationProbabilityAvg','precipitationIntensityAvg','windSpeed','weatherCode'],
-      timesteps:  ['1d'],
-      startTime:  'now',
-      endTime:    'nowPlus3d',   // now + 3 วัน = รวมวันนี้เป็น 4 วัน
-      units:      'metric'
-    }
-  })
-  const intervals = resp.data.data.timelines[0].intervals
+      apikey: TOMORROW_API_KEY,
+      location: `${lat},${lon}`,
+      fields: ['temperatureMax', 'temperatureMin', 'precipitationProbabilityAvg', 'precipitationIntensityAvg', 'windSpeed', 'weatherCode'],
+      timesteps: ['1d'],
+      startTime: 'now',
+      endTime: 'nowPlus3d', // now + 3 วัน = รวมวันนี้เป็น 4 วัน
+      units: 'metric',
+    },
+  });
+  const { intervals } = resp.data.data.timelines[0];
 
   // แปลง response
-  const realDays = intervals.map(iv => ({
+  const realDays = intervals.map((iv) => ({
     time: iv.startTime,
     values: {
-      temperatureMax:              iv.values.temperatureMax,
-      temperatureMin:              iv.values.temperatureMin,
+      temperatureMax: iv.values.temperatureMax,
+      temperatureMin: iv.values.temperatureMin,
       precipitationProbabilityAvg: iv.values.precipitationProbabilityAvg,
-      precipitationIntensityAvg:   iv.values.precipitationIntensityAvg || 0,
-      windSpeed:                   iv.values.windSpeed,
-      weatherCodeMax:              iv.values.weatherCode
-    }
-  }))
+      precipitationIntensityAvg: iv.values.precipitationIntensityAvg || 0,
+      windSpeed: iv.values.windSpeed,
+      weatherCodeMax: iv.values.weatherCode,
+    },
+  }));
 
   // mock อีก 3 วันให้ครบ 7 วัน
   const mockDays = Array.from({ length: 3 }).map((_, idx) => {
-    const d = new Date()
-    d.setDate(d.getDate() + realDays.length + idx)
+    const d = new Date();
+    d.setDate(d.getDate() + realDays.length + idx);
     return {
       time: d.toISOString(),
       values: {
-        temperatureMax:              28 + Math.random() * 6,
-        temperatureMin:              24 + Math.random() * 4,
+        temperatureMax: 28 + Math.random() * 6,
+        temperatureMin: 24 + Math.random() * 4,
         precipitationProbabilityAvg: Math.random() * 50,
-        precipitationIntensityAvg:   Math.random() * 10,
-        windSpeed:                   Math.random() * 10,
-        weatherCodeMax:              1000
-      }
-    }
-  })
+        precipitationIntensityAvg: Math.random() * 10,
+        windSpeed: Math.random() * 10,
+        weatherCodeMax: 1000,
+      },
+    };
+  });
 
-  return realDays.concat(mockDays)
+  return realDays.concat(mockDays);
 }
 
 /**
@@ -217,11 +217,11 @@ async function fetchModelForecast(lat, lon) {
   const resp = await axios.post(
     ML_SERVICE_URL,
     null,
-    { params: { lat, lon } }
-  )
+    { params: { lat, lon } },
+  );
   // สมมติว่า ML service คืนโครงสร้างแบบนี้
   // { today: { temperature, weatherCode, precipitationProbability, windSpeed }, forecast: [...] }
-  return resp.data
+  return resp.data;
 }
 
 /**
@@ -248,7 +248,7 @@ async function fetchCurrentWeather(lat, lon) {
         rainfall: Math.random() * 5,
         weatherCode: 1000,
         weatherDescription: 'Clear sky',
-        source: 'mock-fallback'
+        source: 'mock-fallback',
       };
     }
   }
@@ -283,8 +283,8 @@ async function fetchCombinedForecast(lat, lon) {
             windSpeed: Math.random() * 10,
             weatherCode: 1000,
             weatherDescription: 'Clear sky',
-            source: 'mock-fallback'
-          }
+            source: 'mock-fallback',
+          },
         };
       });
     }
@@ -309,7 +309,7 @@ async function getCurrentWeatherData(cityId = 1) {
         pressure: Math.round(1013 + Math.random() * 5),
         windSpeed: Math.round(5 + Math.random() * 3),
         rainfall: Math.round(Math.random() * 3 * 10) / 10, // 0-3mm with 1 decimal
-        cityId: cityId
+        cityId,
       });
     }
 
@@ -327,14 +327,30 @@ async function getProvinceWeatherSummary() {
   try {
     // Mock data สำหรับเปรียบเทียบจังหวัด
     const provinces = [
-      { province_name: 'ວຽງຈັນ', avg_temperature: 28, avg_humidity: 65, avg_rainfall: 120 },
-      { province_name: 'ລວງພະບາງ', avg_temperature: 26, avg_humidity: 70, avg_rainfall: 150 },
-      { province_name: 'ປາກເຊ', avg_temperature: 32, avg_humidity: 60, avg_rainfall: 80 },
-      { province_name: 'ສະຫວັນນະເຂດ', avg_temperature: 29, avg_humidity: 68, avg_rainfall: 100 },
-      { province_name: 'ຈໍາປາສັກ', avg_temperature: 31, avg_humidity: 62, avg_rainfall: 90 },
-      { province_name: 'ຜົ້ງສາລີ', avg_temperature: 24, avg_humidity: 75, avg_rainfall: 200 },
-      { province_name: 'ແຂວງອຸດົມໄຊ', avg_temperature: 27, avg_humidity: 72, avg_rainfall: 180 },
-      { province_name: 'ບໍ່ແກ້ວ', avg_temperature: 30, avg_humidity: 58, avg_rainfall: 60 }
+      {
+        province_name: 'ວຽງຈັນ', avg_temperature: 28, avg_humidity: 65, avg_rainfall: 120,
+      },
+      {
+        province_name: 'ລວງພະບາງ', avg_temperature: 26, avg_humidity: 70, avg_rainfall: 150,
+      },
+      {
+        province_name: 'ປາກເຊ', avg_temperature: 32, avg_humidity: 60, avg_rainfall: 80,
+      },
+      {
+        province_name: 'ສະຫວັນນະເຂດ', avg_temperature: 29, avg_humidity: 68, avg_rainfall: 100,
+      },
+      {
+        province_name: 'ຈໍາປາສັກ', avg_temperature: 31, avg_humidity: 62, avg_rainfall: 90,
+      },
+      {
+        province_name: 'ຜົ້ງສາລີ', avg_temperature: 24, avg_humidity: 75, avg_rainfall: 200,
+      },
+      {
+        province_name: 'ແຂວງອຸດົມໄຊ', avg_temperature: 27, avg_humidity: 72, avg_rainfall: 180,
+      },
+      {
+        province_name: 'ບໍ່ແກ້ວ', avg_temperature: 30, avg_humidity: 58, avg_rainfall: 60,
+      },
     ];
 
     return provinces;
@@ -346,7 +362,7 @@ async function getProvinceWeatherSummary() {
 
 module.exports = {
   fetchRealtime,
-  fetchDaily: fetchApiForecast,   // เดิมชื่อ fetchDaily ก็แทนด้วย fetchApiForecast
+  fetchDaily: fetchApiForecast, // เดิมชื่อ fetchDaily ก็แทนด้วย fetchApiForecast
   fetchApiForecast,
   fetchModelForecast,
   // OpenWeatherMap functions
@@ -357,5 +373,5 @@ module.exports = {
   fetchCombinedForecast,
   // Dashboard functions
   getCurrentWeatherData,
-  getProvinceWeatherSummary
-}
+  getProvinceWeatherSummary,
+};

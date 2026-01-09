@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
-const jwt    = require('jsonwebtoken');
-const User   = require('../models/userModel'); // เปลี่ยน path ถ้าไม่ตรง
+const jwt = require('jsonwebtoken');
+const User = require('../models/userModel'); // เปลี่ยน path ถ้าไม่ตรง
 
 // REGISTER (สร้างผู้ใช้ใหม่)
 exports.register = async (req, res) => {
@@ -19,7 +19,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       username,
       password: hash,
-      role: role || 'user' // ถ้าไม่กำหนด, default เป็น user
+      role: role || 'user', // ถ้าไม่กำหนด, default เป็น user
     });
     res.json({ message: 'สมัครสมาชิกสำเร็จ', user: { id: user.id, username: user.username, role: user.role } });
   } catch (err) {
@@ -32,25 +32,25 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     if (!username || !password) {
       return res.status(400).json({ message: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' });
     }
-    
+
     // Find user by username
-    const user = await User.findOne({ 
-      where: { username: username } 
+    const user = await User.findOne({
+      where: { username },
     });
-    
+
     if (!user) {
       return res.status(401).json({ message: 'ไม่พบผู้ใช้นี้ในระบบ' });
     }
-    
+
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       return res.status(401).json({ message: 'รหัสผ่านไม่ถูกต้อง' });
     }
-    
+
     // Ensure JWT_SECRET is configured
     if (!process.env.JWT_SECRET) {
       console.error('JWT_SECRET not set in environment');
@@ -60,16 +60,16 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '12h' }
+      { expiresIn: '12h' },
     );
-    
+
     res.json({
       message: 'เข้าสู่ระบบสำเร็จ',
       token,
       username: user.username,
       role: user.role,
       userId: user.id,
-      redirectUrl: user.role === 'admin' ? '/admin' : '/'
+      redirectUrl: user.role === 'admin' ? '/admin' : '/',
     });
   } catch (err) {
     console.error('login error:', err);
@@ -99,8 +99,8 @@ exports.verifyToken = async (req, res) => {
       user: {
         id: req.user.id,
         username: req.user.username,
-        role: req.user.role
-      }
+        role: req.user.role,
+      },
     });
   } catch (err) {
     console.error('verify token error:', err);
@@ -112,13 +112,13 @@ exports.verifyToken = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password'] }
+      attributes: { exclude: ['password'] },
     });
-    
+
     if (!user) {
       return res.status(404).json({ message: 'ไม่พบข้อมูลผู้ใช้' });
     }
-    
+
     res.json({ user });
   } catch (err) {
     console.error('get profile error:', err);
@@ -133,12 +133,12 @@ exports.getAllUsers = async (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
-    
+
     const users = await User.findAll({
       attributes: { exclude: ['password'] },
-      order: [['created_at', 'DESC']]
+      order: [['created_at', 'DESC']],
     });
-    
+
     res.json(users);
   } catch (err) {
     console.error('get all users error:', err);

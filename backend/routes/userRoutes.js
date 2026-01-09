@@ -1,4 +1,5 @@
 const express = require('express');
+
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { verifyToken } = require('../middleware/auth');
@@ -10,8 +11,8 @@ router.get('/public/count', async (req, res) => {
     console.log('🔍 Fetching public user count...');
     const userCount = await User.count({
       where: {
-        status: 'active' // Only count active users
-      }
+        status: 'active', // Only count active users
+      },
     });
     console.log('✅ Found', userCount, 'active users');
     res.json({ count: userCount });
@@ -26,10 +27,10 @@ router.get('/public/count', async (req, res) => {
 router.use(verifyToken);
 
 // CRUD routes for users
-router.post('/', userController.createUser);        // Create
-router.get('/', userController.getAllUsers);        // Read all
-router.get('/:id', userController.getUserById);     // Read one
-router.put('/:id', userController.updateUser);      // Update
-router.delete('/:id', userController.deleteUser);   // Delete
+router.post('/', userController.createUser); // Create
+router.get('/', userController.getAllUsers); // Read all
+router.get('/:id', userController.getUserById); // Read one
+router.put('/:id', userController.updateUser); // Update
+router.delete('/:id', userController.deleteUser); // Delete
 
 module.exports = router;

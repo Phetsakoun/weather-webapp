@@ -5,69 +5,69 @@ const Notification = sequelize.define('Notification', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
-    autoIncrement: true
+    autoIncrement: true,
   },
   title: {
     type: DataTypes.STRING(255),
-    allowNull: false
+    allowNull: false,
   },
   message: {
     type: DataTypes.TEXT,
-    allowNull: false
+    allowNull: false,
   },
   type: {
     type: DataTypes.ENUM('info', 'warning', 'error', 'success', 'weather', 'rain', 'storm', 'drought', 'flood', 'emergency'),
-    defaultValue: 'info'
+    defaultValue: 'info',
   },
   priority: {
     type: DataTypes.ENUM('Low', 'Medium', 'High', 'Critical'),
-    defaultValue: 'Medium'
+    defaultValue: 'Medium',
   },
   recommendations: {
     type: DataTypes.TEXT,
-    allowNull: true
+    allowNull: true,
   },
   status: {
     type: DataTypes.ENUM('Unread', 'Read'),
-    defaultValue: 'Unread'
+    defaultValue: 'Unread',
   },
   user_id: {
     type: DataTypes.INTEGER,
     allowNull: true,
     references: {
       model: 'users',
-      key: 'id'
-    }
+      key: 'id',
+    },
   },
   is_read: {
     type: DataTypes.BOOLEAN,
-    defaultValue: false
+    defaultValue: false,
   },
   created_at: {
     type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+    defaultValue: DataTypes.NOW,
   },
   updated_at: {
     type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
-  }
+    defaultValue: DataTypes.NOW,
+  },
 }, {
   tableName: 'notifications',
   timestamps: false, // We're managing timestamps manually
   indexes: [
     {
-      fields: ['user_id']
+      fields: ['user_id'],
     },
     {
-      fields: ['type']
+      fields: ['type'],
     },
     {
-      fields: ['is_read']
+      fields: ['is_read'],
     },
     {
-      fields: ['created_at']
-    }
-  ]
+      fields: ['created_at'],
+    },
+  ],
 });
 
 module.exports = Notification;

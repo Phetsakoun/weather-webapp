@@ -33,7 +33,9 @@ describe('Predict integration (backend -> ML -> DB)', () => {
     const cityId = 1;
 
     // Mock City.findByPk to return a city with coordinates
-    City.findByPk.mockResolvedValue({ id: cityId, name_th: 'TestCity', lat: 10.0, lon: 20.0 });
+    City.findByPk.mockResolvedValue({
+      id: cityId, name_th: 'TestCity', lat: 10.0, lon: 20.0,
+    });
 
     // Mock ML response via nock
     const mlScope = nock('http://127.0.0.1:5001')
@@ -42,13 +44,13 @@ describe('Predict integration (backend -> ML -> DB)', () => {
       .reply(200, {
         status: 'success',
         predictions: {
-          times: ['2026-01-10','2026-01-11','2026-01-12'],
+          times: ['2026-01-10', '2026-01-11', '2026-01-12'],
           temperatures: [25, 26, 27],
           humidities: [70, 72, 75],
           rainfalls: [0, 1, 0],
           pressures: [1012, 1013, 1011],
-          wind_speeds: [3, 2.5, 4]
-        }
+          wind_speeds: [3, 2.5, 4],
+        },
       });
 
     // Mock persistence.createForecastBatch to pretend to insert

@@ -15,7 +15,22 @@
     "func-names": "off",
     "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
     "consistent-return": "warn",
-    "no-shadow": "warn"
+    "no-shadow": "warn",
+    "no-plusplus": "off",
+    "no-await-in-loop": "warn",
+    "no-restricted-syntax": "warn",
+    "no-promise-executor-return": "warn",
+    "import/no-extraneous-dependencies": "warn",
+    "global-require": "warn",
+    "no-use-before-define": "warn",
+    "no-restricted-globals": "warn",
+    "no-nested-ternary": "warn",
+    "max-len": ["warn", { "code": 120 }],
+    "eqeqeq": "warn",
+    "radix": "off",
+    "camelcase": "off",
+    "no-undef": "warn",
+    "no-dupe-keys": "warn"
   },
   "ignorePatterns": ["node_modules", "dist", "build", ".vscode"]
 }

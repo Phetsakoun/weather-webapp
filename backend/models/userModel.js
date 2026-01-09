@@ -7,19 +7,19 @@ const User = sequelize.define('User', {
   username: { type: DataTypes.STRING, unique: true, allowNull: false },
   email: { type: DataTypes.STRING, unique: true, allowNull: true },
   password: { type: DataTypes.STRING, allowNull: false },
-  role: { 
+  role: {
     type: DataTypes.STRING,
-    defaultValue: 'user'
+    defaultValue: 'user',
   },
   status: {
     type: DataTypes.ENUM('active', 'inactive'),
-    defaultValue: 'active'
-  }
+    defaultValue: 'active',
+  },
 }, {
   tableName: 'users',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: false // Disable updatedAt since table doesn't have this column
+  updatedAt: false, // Disable updatedAt since table doesn't have this column
 });
 
 module.exports = User;

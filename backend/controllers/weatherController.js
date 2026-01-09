@@ -5,13 +5,13 @@ const Weather = require('../models/weatherModel');
 const City = require('../models/cityModel');
 const WeatherForecast = require('../models/weatherForecastModel'); // เพิ่มบรรทัดนี้
 const persistence = require('../services/weatherPersistence');
-const { 
-  fetchRealtime, 
-  fetchDaily, 
-  fetchCurrentWeather, 
+const {
+  fetchRealtime,
+  fetchDaily,
+  fetchCurrentWeather,
   fetchCombinedForecast,
   fetchOpenWeatherCurrent,
-  fetchOpenWeatherForecast 
+  fetchOpenWeatherForecast,
 } = require('../services/weatherService');
 
 // 1) Fetch & save historic hourly data
@@ -34,16 +34,16 @@ async function fetchAndSaveWeather(req, res) {
           fields: 'temperature,humidity,pressureSeaLevel,precipitationIntensity',
           timesteps: '1h',
           startTime: startTime.toISOString(),
-          endTime: endTime.toISOString()
-        }
+          endTime: endTime.toISOString(),
+        },
       });
 
-      const values = resp.data.data.timelines[0].intervals[0].values;
+      const { values } = resp.data.data.timelines[0].intervals[0];
 
-      if (typeof values.pressureSeaLevel === "undefined" || values.pressureSeaLevel === null) {
+      if (typeof values.pressureSeaLevel === 'undefined' || values.pressureSeaLevel === null) {
         return res.status(400).json({
-          message: "API จาก Tomorrow.io ไม่ส่ง pressureSeaLevel",
-          detail: resp.data
+          message: 'API จาก Tomorrow.io ไม่ส่ง pressureSeaLevel',
+          detail: resp.data,
         });
       }
 
@@ -65,13 +65,13 @@ async function fetchAndSaveWeather(req, res) {
         // ใช้ข้อมูล mock หรือข้อมูลจาก OpenWeatherMap แทน
         const fallbackData = {
           temperature: 28 + (Math.random() * 4 - 2), // ±2°C variation
-          humidity: 65 + (Math.random() * 20 - 10),  // ±10% variation
+          humidity: 65 + (Math.random() * 20 - 10), // ±10% variation
           pressure: 1013.2,
           rainfall: Math.random() > 0.8 ? Math.random() * 5 : 0, // 20% chance of rain
           city_id: cityId,
           timestamp: new Date(),
         };
-        
+
         await Weather.create(fallbackData);
         res.json({ success: true, data: fallbackData, source: 'fallback' });
       } else {
@@ -91,9 +91,9 @@ async function getAllWeather(req, res) {
       include: [{
         model: City,
         as: 'weatherCity',
-        attributes: ['id', 'name_th', 'name_en']
+        attributes: ['id', 'name_th', 'name_en'],
       }],
-      order: [['timestamp', 'DESC']]
+      order: [['timestamp', 'DESC']],
     });
     res.json(list);
   } catch (err) {
@@ -105,10 +105,10 @@ async function getAllWeather(req, res) {
 // 3) Get realtime by lat/lon or cityId
 async function getWeatherByLocation(req, res) {
   const { lat, lon, cityId } = req.query;
-  
+
   let targetLat = lat;
   let targetLon = lon;
-  
+
   // If cityId is provided, get coordinates from city data
   if (cityId && (!lat || !lon)) {
     try {
@@ -122,44 +122,45 @@ async function getWeatherByLocation(req, res) {
       return res.status(500).json({ message: 'เกิดข้อผิดพลาดขณะค้นหาข้อมูลเมือง' });
     }
   }
-  
+
   if (!targetLat || !targetLon) {
     return res.status(400).json({ message: 'กรุณาส่ง lat และ lon หรือ cityId มาให้ครบถ้วน' });
   }
-  
+
   console.log(`🌦️ Fetching weather for lat: ${targetLat}, lon: ${targetLon}`);
-  
+
   try {
     // Check if we have weather data in database for charts (last 24 hours)
-    if (cityId) {        const weatherHistory = await Weather.findAll({
+    if (cityId) {
+      const weatherHistory = await Weather.findAll({
         where: {
           city_id: cityId,
           timestamp: {
-            [require('sequelize').Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-          }
+            [require('sequelize').Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+          },
         },
         order: [['timestamp', 'ASC']], // Order by time ascending for charts
-        limit: 50 // Limit to prevent too much data
+        limit: 50, // Limit to prevent too much data
       });
-      
+
       if (weatherHistory && weatherHistory.length > 0) {
         console.log(`✅ Using database weather data (${weatherHistory.length} records)`);
         // Return historical data in array format for chart compatibility
-        const chartData = weatherHistory.map(record => ({
+        const chartData = weatherHistory.map((record) => ({
           temperature: record.temperature,
           humidity: record.humidity,
           pressure: record.pressure,
           timestamp: record.timestamp,
-          city_id: record.city_id
+          city_id: record.city_id,
         }));
         return res.json(chartData);
       }
     }
-    
+
     // Use the new combined weather service (OpenWeatherMap + Tomorrow.io fallback)
     const cur = await fetchCurrentWeather(targetLat, targetLon);
     console.log('✅ Weather data fetched successfully:', cur);
-    
+
     // Save to database if cityId is provided
     if (cityId) {
       await Weather.create({
@@ -168,10 +169,10 @@ async function getWeatherByLocation(req, res) {
         pressure: cur.pressure,
         rainfall: cur.rainfall || 0,
         city_id: cityId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
-    
+
     // Return array format for chart compatibility
     res.json([{
       temperature: cur.temperature,
@@ -179,21 +180,21 @@ async function getWeatherByLocation(req, res) {
       pressure: cur.pressure,
       rainfall: cur.rainfall || 0,
       timestamp: new Date(),
-      city_id: cityId
+      city_id: cityId,
     }]);
   } catch (err) {
     console.error('❌ Weather fetch error:', err.message);
-    
+
     // Always return mock data instead of error to prevent frontend crashes
     const mockWeather = [{
       temperature: 28.5 + (Math.random() * 4 - 2), // Random variation ±2°C
-      humidity: 65 + (Math.random() * 20 - 10),    // Random variation ±10%
+      humidity: 65 + (Math.random() * 20 - 10), // Random variation ±10%
       pressure: 1013.2,
       rainfall: Math.random() > 0.8 ? Math.random() * 5 : 0, // 20% chance of rain
       timestamp: new Date(),
-      city_id: cityId || 1
+      city_id: cityId || 1,
     }];
-    
+
     console.log('📊 Returning mock weather data:', mockWeather);
     res.json(mockWeather);
   }
@@ -223,9 +224,9 @@ async function getLatestWeather(req, res) {
 async function getForecast7Days(req, res) {
   try {
     const forecast = Array(7).fill(0).map((_, i) => ({
-      day: `Day ${i+1}`,
+      day: `Day ${i + 1}`,
       temperature: 28 + Math.random() * 4,
-      humidity: 60 + Math.random() * 10
+      humidity: 60 + Math.random() * 10,
     }));
     res.json(forecast);
   } catch (err) {
@@ -239,7 +240,7 @@ const forecastCache = {
   timestamp: 0,
   lat: null,
   lon: null,
-  ttl: 30 * 60 * 1000 // 30 นาที (ms)
+  ttl: 30 * 60 * 1000, // 30 นาที (ms)
 };
 async function get7DayTimeline(req, res) {
   const { lat, lon } = req.query;
@@ -249,10 +250,10 @@ async function get7DayTimeline(req, res) {
   const now = Date.now();
 
   if (
-    forecastCache.data &&
-    (now - forecastCache.timestamp) < forecastCache.ttl &&
-    forecastCache.lat === lat &&
-    forecastCache.lon === lon
+    forecastCache.data
+    && (now - forecastCache.timestamp) < forecastCache.ttl
+    && forecastCache.lat === lat
+    && forecastCache.lon === lon
   ) {
     return res.json(forecastCache.data);
   }
@@ -260,7 +261,7 @@ async function get7DayTimeline(req, res) {
   try {
     // Use the new combined forecast service (OpenWeatherMap + Tomorrow.io fallback)
     const forecast = await fetchCombinedForecast(lat, lon);
-    
+
     // Ensure we have 7 days of forecast data
     if (forecast.length < 7) {
       const mockDays = Array.from({ length: 7 - forecast.length }).map((_, i) => {
@@ -275,8 +276,8 @@ async function get7DayTimeline(req, res) {
             windSpeed: Math.floor(Math.random() * 10),
             weatherCodeMax: 1000,
             weatherDescription: 'Clear sky',
-            source: 'mock-extension'
-          }
+            source: 'mock-extension',
+          },
         };
       });
       forecast.push(...mockDays);
@@ -299,8 +300,8 @@ async function get7DayTimeline(req, res) {
           temperatureMin: 24 + Math.random() * 4,
           precipitationProbabilityAvg: Math.floor(Math.random() * 60),
           windSpeed: Math.floor(Math.random() * 10),
-          weatherCodeMax: 1000
-        }
+          weatherCodeMax: 1000,
+        },
       };
     });
     return res.json(fallback);
@@ -321,15 +322,15 @@ async function predictWeatherByCityId(req, res) {
     }
 
     const seq = {
-      temperature: recentWeather.map(r => r.temperature).reverse(),
-      humidity: recentWeather.map(r => r.humidity).reverse(),
-      pressure: recentWeather.map(r => r.pressure).reverse()
+      temperature: recentWeather.map((r) => r.temperature).reverse(),
+      humidity: recentWeather.map((r) => r.humidity).reverse(),
+      pressure: recentWeather.map((r) => r.pressure).reverse(),
     };
 
     const mlRes = await axios.post(
       process.env.ML_SERVICE_URL || 'http://localhost:8000/predict',
       seq,
-      { headers: { 'Content-Type': 'application/json' } }
+      { headers: { 'Content-Type': 'application/json' } },
     );
     const prediction = mlRes.data;
 
@@ -341,7 +342,7 @@ async function predictWeatherByCityId(req, res) {
         predicted_temperature: prediction.temperature,
         predicted_humidity: prediction.humidity,
         predicted_rainfall: prediction.rainfall || 0,
-        description: `ML Prediction - source: model`,
+        description: 'ML Prediction - source: model',
       });
     } catch (saveErr) {
       console.warn('Could not save prediction to WeatherForecast (persistence):', saveErr.message);
@@ -359,8 +360,8 @@ async function predictWeatherByLatLon(req, res) {
   lat = Number(lat);
   lon = Number(lon);
   if (
-    lat == null || lon == null ||
-    isNaN(lat) || isNaN(lon)
+    lat == null || lon == null
+    || isNaN(lat) || isNaN(lon)
   ) {
     return res.status(400).json({ message: 'ต้องส่ง lat และ lon ที่ถูกต้อง (number) มาให้ครบใน body' });
   }
@@ -368,7 +369,7 @@ async function predictWeatherByLatLon(req, res) {
     const mlRes = await axios.post(
       process.env.ML_SERVICE_URL || 'http://localhost:8000/ingest_and_predict',
       null,
-      { params: { lat, lon } }
+      { params: { lat, lon } },
     );
     res.json(mlRes.data);
   } catch (err) {
@@ -384,14 +385,14 @@ async function getPredictions(req, res) {
       include: [{
         model: City,
         as: 'forecastCity',
-        attributes: ['id', 'name_th', 'name_en']
+        attributes: ['id', 'name_th', 'name_en'],
       }],
       order: [['createdAt', 'DESC']],
-      limit: req.query.limit ? parseInt(req.query.limit) : 100
+      limit: req.query.limit ? parseInt(req.query.limit) : 100,
     });
-    
+
     // Transform data to match frontend expectations
-    const transformedPredictions = predictions.map(pred => ({
+    const transformedPredictions = predictions.map((pred) => ({
       id: pred.id,
       city_id: pred.cityId,
       cityName: pred.predictionCity ? (pred.predictionCity.name_th || pred.predictionCity.name_en) : 'Unknown City',
@@ -409,17 +410,17 @@ async function getPredictions(req, res) {
       forecastCity: {
         id: pred.cityId,
         name_th: pred.predictionCity ? pred.predictionCity.name_th : null,
-        name_en: pred.predictionCity ? pred.predictionCity.name_en : null
-      }
+        name_en: pred.predictionCity ? pred.predictionCity.name_en : null,
+      },
     }));
 
     res.json(transformedPredictions);
   } catch (error) {
     console.error('Error fetching predictions:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: 'Failed to fetch predictions',
-      message: error.message 
+      message: error.message,
     });
   }
 }
@@ -430,12 +431,12 @@ async function getMockPredictions(req, res) {
     // Create mock data for testing
     const mockPredictions = [];
     const cities = await City.findAll();
-    
+
     for (let i = 0; i < 10; i++) {
       const date = new Date();
       date.setDate(date.getDate() + i);
-      
-      cities.slice(0, 3).forEach(city => {
+
+      cities.slice(0, 3).forEach((city) => {
         mockPredictions.push({
           id: `mock_${i}_${city.id}`,
           city_id: city.id,
@@ -454,8 +455,8 @@ async function getMockPredictions(req, res) {
           forecastCity: {
             id: city.id,
             name_th: city.name_th,
-            name_en: city.name_en
-          }
+            name_en: city.name_en,
+          },
         });
       });
     }
@@ -463,10 +464,10 @@ async function getMockPredictions(req, res) {
     res.json(mockPredictions);
   } catch (error) {
     console.error('Error generating mock predictions:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: 'Failed to generate mock predictions',
-      message: error.message 
+      message: error.message,
     });
   }
 }
@@ -480,24 +481,24 @@ const getCurrentWeatherForAlerts = async (req, res) => {
     const recentWeather = await Weather.findAll({
       where: {
         timestamp: {
-          [Op.gte]: new Date(Date.now() - 60 * 60 * 1000) // Last 1 hour
-        }
+          [Op.gte]: new Date(Date.now() - 60 * 60 * 1000), // Last 1 hour
+        },
       },
       include: [{
         model: require('../models/cityModel'),
         as: 'weatherCity',
-        attributes: ['id', 'name_th', 'name_en', 'province_id']
+        attributes: ['id', 'name_th', 'name_en', 'province_id'],
       }],
       order: [['timestamp', 'DESC']],
-      limit: 100
+      limit: 100,
     });
 
     // Group by city and get latest record for each city
     const latestWeatherByCity = {};
-    recentWeather.forEach(weather => {
+    recentWeather.forEach((weather) => {
       const cityId = weather.city_id;
-      if (!latestWeatherByCity[cityId] || 
-          new Date(weather.timestamp) > new Date(latestWeatherByCity[cityId].timestamp)) {
+      if (!latestWeatherByCity[cityId]
+          || new Date(weather.timestamp) > new Date(latestWeatherByCity[cityId].timestamp)) {
         latestWeatherByCity[cityId] = {
           id: weather.id,
           city_id: weather.city_id,
@@ -508,7 +509,7 @@ const getCurrentWeatherForAlerts = async (req, res) => {
           rainfall: weather.rainfall || 0,
           description: weather.description,
           timestamp: weather.timestamp,
-          city: weather.weatherCity
+          city: weather.weatherCity,
         };
       }
     });
@@ -521,15 +522,14 @@ const getCurrentWeatherForAlerts = async (req, res) => {
       success: true,
       data: currentWeatherData,
       timestamp: new Date().toISOString(),
-      count: currentWeatherData.length
+      count: currentWeatherData.length,
     });
-
   } catch (error) {
     console.error('❌ Error fetching current weather for alerts:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch current weather data for alerts',
-      details: error.message
+      details: error.message,
     });
   }
 };
@@ -540,28 +540,29 @@ const getCurrentWeatherForAlerts = async (req, res) => {
 // Get rainfall comparison data
 async function getRainfallComparison(req, res) {
   try {
-    const { city_id, date_from, date_to, limit = 30 } = req.query;
+    const {
+      city_id, date_from, date_to, limit = 30,
+    } = req.query;
 
     const rows = await require('../services/weatherPersistence').getRainfallComparison({
       city_id: city_id || null,
       date_from: date_from || null,
       date_to: date_to || null,
-      limit: limit
+      limit,
     });
 
-    const enrichedData = rows.map(item => ({
+    const enrichedData = rows.map((item) => ({
       ...item,
       predicted_rainfall: item.predicted_rainfall || generateMockRainfallPrediction(item.actual_rainfall),
-      actual_rainfall: parseFloat(item.actual_rainfall) || 0
+      actual_rainfall: parseFloat(item.actual_rainfall) || 0,
     }));
 
     res.json(enrichedData);
-    
   } catch (error) {
     console.error('Error fetching rainfall comparison:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch rainfall comparison data',
-      details: error.message 
+      details: error.message,
     });
   }
 }
@@ -571,12 +572,12 @@ function generateMockRainfallPrediction(actualRainfall) {
   if (!actualRainfall || actualRainfall === 0) {
     return Math.random() < 0.3 ? (Math.random() * 2).toFixed(1) : 0;
   }
-  
+
   // Generate prediction with 80-95% accuracy
   const accuracy = 0.8 + Math.random() * 0.15;
   const variation = actualRainfall * (1 - accuracy) * (Math.random() > 0.5 ? 1 : -1);
   const predicted = Math.max(0, actualRainfall + variation);
-  
+
   return parseFloat(predicted.toFixed(1));
 }
 
@@ -593,5 +594,5 @@ module.exports = {
   getPredictions,
   getMockPredictions,
   getCurrentWeatherForAlerts,
-  getRainfallComparison
+  getRainfallComparison,
 };

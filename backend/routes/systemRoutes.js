@@ -1,4 +1,5 @@
 const express = require('express');
+
 const router = express.Router();
 
 // System health check endpoint
@@ -11,20 +12,20 @@ router.get('/health', async (req, res) => {
       services: {
         database: 'healthy',
         api: 'healthy',
-        ml_service: 'healthy'
+        ml_service: 'healthy',
       },
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      version: process.version
+      version: process.version,
     };
 
     res.json(systemStatus);
   } catch (error) {
     console.error('Error checking system health:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       status: 'unhealthy',
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 });
