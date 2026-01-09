@@ -1,5 +1,7 @@
 // Input validation middleware using express-validator
-const { body, query, param, validationResult } = require('express-validator');
+const {
+  body, query, param, validationResult,
+} = require('express-validator');
 
 // Middleware to handle validation errors
 const handleValidationErrors = (req, res, next) => {
@@ -7,10 +9,10 @@ const handleValidationErrors = (req, res, next) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({
       message: 'Validation error',
-      errors: errors.array().map(err => ({
+      errors: errors.array().map((err) => ({
         field: err.param,
-        message: err.msg
-      }))
+        message: err.msg,
+      })),
     });
   }
   next();
@@ -31,7 +33,7 @@ const validateRegister = [
     .optional()
     .isEmail()
     .withMessage('Invalid email format'),
-  handleValidationErrors
+  handleValidationErrors,
 ];
 
 const validateLogin = [
@@ -42,7 +44,7 @@ const validateLogin = [
   body('password')
     .notEmpty()
     .withMessage('Password is required'),
-  handleValidationErrors
+  handleValidationErrors,
 ];
 
 // Weather validation
@@ -59,7 +61,7 @@ const validateWeatherQuery = [
     .optional()
     .isInt({ min: 1 })
     .withMessage('City ID must be a positive integer'),
-  handleValidationErrors
+  handleValidationErrors,
 ];
 
 // Forecast validation
@@ -81,7 +83,7 @@ const validateForecastCreate = [
     .optional()
     .isFloat({ min: 0 })
     .withMessage('Rainfall must be non-negative'),
-  handleValidationErrors
+  handleValidationErrors,
 ];
 
 // City validation
@@ -100,7 +102,7 @@ const validateCityCreate = [
     .optional()
     .isInt({ min: 1 })
     .withMessage('Province ID must be a positive integer'),
-  handleValidationErrors
+  handleValidationErrors,
 ];
 
 // ID validation
@@ -108,7 +110,7 @@ const validateId = [
   param('id')
     .isInt({ min: 1 })
     .withMessage('Invalid ID format'),
-  handleValidationErrors
+  handleValidationErrors,
 ];
 
 // Pagination validation
@@ -121,7 +123,7 @@ const validatePagination = [
     .optional()
     .isInt({ min: 0 })
     .withMessage('Offset must be a non-negative integer'),
-  handleValidationErrors
+  handleValidationErrors,
 ];
 
 module.exports = {
@@ -132,5 +134,5 @@ module.exports = {
   validateCityCreate,
   validateId,
   validatePagination,
-  handleValidationErrors
+  handleValidationErrors,
 };
