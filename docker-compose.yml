@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: weather-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-weather_db}
+      MYSQL_USER: ${DB_USER:-weather_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-weather_pass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+    networks:
+      - weather-network
+
+  # Backend (Node.js + Express)
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: weather-backend
+    environment:
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_NAME: ${DB_NAME:-weather_db}
+      DATABASE_USER: ${DB_USER:-weather_user}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-weather_pass}
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_here}
+      ML_SERVICE_URL: http://ml-api:5001
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      timeout: 10s
+      retries: 5
+      interval: 10s
+    networks:
+      - weather-network
+    restart: unless-stopped
+
+  # ML API Server (Python + FastAPI/Flask)
+  ml-api:
+    build:
+      context: .
+      dockerfile: ml_model/Dockerfile
+    container_name: weather-ml-api
+    environment:
+      FLASK_ENV: ${NODE_ENV:-production}
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      timeout: 10s
+      retries: 5
+      interval: 10s
+    networks:
+      - weather-network
+    restart: unless-stopped
+
+  # Frontend (Optional - can be served separately)
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: frontend/Dockerfile
+  #   container_name: weather-frontend
+  #   ports:
+  #     - "5173:5173"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - weather-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  weather-network:
+    driver: bridge

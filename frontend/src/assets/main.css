@@ -1,0 +1,64 @@
+/* 1. โหลด Google Font ต้องอยู่ก่อน @tailwind ทั้งหมด */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@300;400;500;600;700;800&display=swap');
+
+/* 2. จากนั้นค่อยเรียก Tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* เพิ่มขนาดฟอนต์ root จาก 16px → 18px */
+  html {
+    font-size: 18px;
+  }
+  
+  /* 3. ตั้งให้ html ใช้ฟอนต์นี้ทั้งเว็บ */
+  html, body, * {
+    font-family: 'Noto Sans Lao', sans-serif !important;
+  }
+}
+
+/* เพิ่มสำหรับกราฟ Highcharts */
+.highcharts-container * {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}
+
+.highcharts-title, .highcharts-subtitle, .highcharts-axis-labels, .highcharts-legend-item, .highcharts-tooltip {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}
+
+/* การปรับแต่งสำหรับภาษาลาว */
+.lao-text {
+  font-family: 'Noto Sans Lao', sans-serif;
+  line-height: 1.6;
+  letter-spacing: 0.025em;
+}
+
+/* ปรับการแสดงผลภาษาลาวใน Highcharts */
+.highcharts-data-label text {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}
+
+.highcharts-xaxis-labels text,
+.highcharts-yaxis-labels text {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}
+
+/* เพิ่มการปรับแต่งสำหรับแผนภูมิ */
+canvas {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}
+
+/* ส่วนเฉพาะสำหรับแผนภูมิ Chart.js */
+.chart-container canvas {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}
+
+/* แผนภูมิเฉพาะสำหรับแดชบอร์ด */
+.dashboard-chart {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}
+
+.dashboard-chart * {
+  font-family: 'Noto Sans Lao', sans-serif !important;
+}

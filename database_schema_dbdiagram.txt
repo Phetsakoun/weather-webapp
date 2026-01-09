@@ -1,0 +1,93 @@
+// Weather Web Application Database Schema
+// Copy this code and paste it into dbdiagram.io
+
+Table provinces {
+  id int [pk, increment]
+  name_th varchar(100) [not null]
+  name_en varchar(100) [not null]
+  
+  Note: 'ตารางจังหวัด - Provinces table'
+}
+
+Table cities {
+  id int [pk, increment]
+  name_th varchar(100) [not null]
+  name_en varchar(100) [not null]
+  province_id int [ref: > provinces.id]
+  lat float
+  lon float
+  
+  Note: 'ตารางเมือง - Cities table'
+}
+
+
+Table users {
+  id int [pk, increment]
+  username varchar(50) [unique, not null]
+  password varchar(100) [not null]
+  role varchar(20) [default: 'user']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'ตารางผู้ใช้ - Users table'
+}
+
+Table weather {
+  id int [pk, increment]
+  city_id int [ref: > cities.id]
+  timestamp datetime [not null]
+  temperature float
+  humidity float
+  wind_speed float
+  pressure float
+  rainfall float [default: 0]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'ตารางข้อมูลสภาพอากาศปัจจุบัน - Current weather data'
+}
+
+Table WeatherForecast {
+  id int [pk, increment]
+  timestamp datetime [not null]
+  temperature float
+  humidity float
+  predicted_temperature float
+  predicted_humidity float
+  predicted_rainfall float [default: 0]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'ตารางพยากรณ์อากาศ LSTM - Weather forecast with LSTM predictions'
+}
+
+
+
+Table notifications {
+  id int [pk, increment]
+  title varchar(255) [not null]
+  message text [not null]
+  type enum('info', 'warning', 'error', 'success') [default: 'info']
+  user_id int [ref: > users.id]
+  is_read boolean [default: false]
+  created_at date [default: `NOW()`]
+  updated_at date [default: `NOW()`]
+  
+  Note: 'ตารางการแจ้งเตือน - Notifications table'
+}
+
+Table news {
+  id int [pk, increment]
+  title varchar(255) [not null]
+  description text
+  youtube_url varchar(500)
+  image_url varchar(500)
+  is_highlight boolean [default: false]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'ตารางข่าวสาร - News table'
+}
+
+
+
+// Relationships Summary:
+// provinces -> cities (1:many)
+// cities -> weather (1:many)
+// users -> notifications (1:many)

@@ -1,0 +1,131 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Test job
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: weather_db
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3306:3306
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'backend/package-lock.json'
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+    
+    - name: Run linter
+      run: |
+        cd backend
+        npm run lint -- --max-warnings 10
+    
+    - name: Run tests
+      env:
+        DATABASE_HOST: 127.0.0.1
+        DATABASE_PORT: 3306
+        DATABASE_NAME: weather_db
+        DATABASE_USER: root
+        DATABASE_PASSWORD: root
+        JWT_SECRET: test_secret_key_for_ci_cd_pipeline
+        ML_SERVICE_URL: http://127.0.0.1:5001
+      run: |
+        cd backend
+        npm test
+    
+    - name: Run npm audit
+      run: |
+        cd backend
+        npm audit --production
+      continue-on-error: true
+
+  # Security audit job
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run npm audit on dependencies
+      run: |
+        cd backend
+        npm audit --production 2>&1 | tee audit.log
+      continue-on-error: true
+    
+    - name: Check for high severity vulnerabilities
+      run: |
+        if grep -i "high\|critical" backend/audit.log; then
+          echo "❌ Found high or critical vulnerabilities!"
+          exit 1
+        else
+          echo "✅ No high or critical vulnerabilities found"
+        fi
+      continue-on-error: true
+
+  # Code quality job
+  quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+    
+    - name: Check for console.log statements
+      run: |
+        cd backend
+        echo "Checking for excessive console.log statements..."
+        count=$(grep -r "console\.log" --include="*.js" controllers routes services models middleware | grep -v "test\|spec" | wc -l)
+        if [ $count -gt 20 ]; then
+          echo "⚠️  Found $count console.log statements (warning)"
+        else
+          echo "✅ Console.log usage is acceptable ($count instances)"
+        fi
+      continue-on-error: true
+
+  # Build notification (optional)
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test, security, quality]
+    if: always()
+    
+    steps:
+    - name: Build Status
+      run: |
+        echo "✅ CI/CD Pipeline Summary:"
+        echo "Test: ${{ needs.test.result }}"
+        echo "Security: ${{ needs.security.result }}"
+        echo "Quality: ${{ needs.quality.result }}"

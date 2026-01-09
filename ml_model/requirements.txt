@@ -1,0 +1,10 @@
+tensorflow
+pandas
+numpy
+SQLAlchemy
+mysql-connector-python
+scikit-learn
+python-dotenv
+joblib
+fastapi
+uvicorn
