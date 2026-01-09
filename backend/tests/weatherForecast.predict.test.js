@@ -41,7 +41,7 @@ describe('Weather Forecast & Predict Flow (Complete)', () => {
         name_th: 'ວຽງຈັນ',
         name_en: 'Vientiane',
         lat: 17.9757,
-        lon: 102.6331
+        lon: 102.6331,
       });
 
       // Mock LSTM API response
@@ -55,13 +55,13 @@ describe('Weather Forecast & Predict Flow (Complete)', () => {
             humidities: [65, 60, 70],
             rainfalls: [10, 5, 15],
             pressures: [1013, 1012, 1014],
-            wind_speeds: [3.2, 2.8, 3.5]
-          }
+            wind_speeds: [3.2, 2.8, 3.5],
+          },
         });
 
       // Mock WeatherForecast.createBatch
       WeatherForecast.createBatch.mockResolvedValue({
-        insertedCount: days
+        insertedCount: days,
       });
 
       const response = await request(app)
@@ -115,8 +115,8 @@ describe('Weather Forecast & Predict Flow (Complete)', () => {
           predicted_temperature: 25.5,
           predicted_humidity: 70,
           predicted_rainfall: 0.5,
-          description: 'LSTM Prediction'
-        }
+          description: 'LSTM Prediction',
+        },
       ]);
 
       const response = await request(app)
@@ -135,7 +135,7 @@ describe('Weather Forecast & Predict Flow (Complete)', () => {
         total_predictions: 30,
         avg_temp_error: 2.5,
         avg_humidity_error: 5,
-        avg_confidence: 0.85
+        avg_confidence: 0.85,
       });
 
       const response = await request(app)
@@ -151,7 +151,7 @@ describe('Weather Forecast & Predict Flow (Complete)', () => {
       const invalidPayload = {
         city_id: 'invalid', // should be number
         timestamp: 'not-a-date', // should be ISO8601
-        predicted_temperature: 'hot' // should be number
+        predicted_temperature: 'hot', // should be number
       };
 
       const response = await request(app)
@@ -169,13 +169,13 @@ describe('Weather Forecast & Predict Flow (Complete)', () => {
         predicted_temperature: 25.5,
         predicted_humidity: 70,
         predicted_rainfall: 0.5,
-        description: 'Clear weather'
+        description: 'Clear weather',
       };
 
       // Mock successful creation
       WeatherForecast.create.mockResolvedValue({
         id: 1,
-        ...validPayload
+        ...validPayload,
       });
 
       const response = await request(app)
