@@ -67,11 +67,20 @@ const limiter = rateLimit({
   legacyHeaders: false // disable the `X-RateLimit-*` headers
 });
 
+// CORS Configuration (adjust for production)
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // 24 hours
+};
+
 // 1) Middleware
 app.use(helmet()); // Add security headers
 app.use(limiter); // Apply rate limiting globally
-app.use(cors());
-app.use(express.json());
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve uploaded images
 app.use(passport.initialize());
