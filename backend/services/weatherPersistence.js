@@ -519,9 +519,8 @@ async function saveForecast(forecast) {
   return WeatherForecast.create(forecast);
 }
 
-async function createForecastBatch(forecasts) {
-  return WeatherForecast.createBatch(forecasts);
-}
+// Note: batch creation implemented above as `createForecastBatch(forecastsData)`;
+// remove duplicate thin wrapper to avoid redeclaration error.
 
 module.exports = {
   getRecentWeatherByCity,
