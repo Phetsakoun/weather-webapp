@@ -17,13 +17,11 @@ const {
   getRainfallComparison,
 } = require('../controllers/weatherController');
 
-const { validatePredictByCity, validatePredictByLocation, validateGet7DayTimeline } = require('../middleware/validateRequest');
 const { validateWeatherQuery, validatePagination } = require('../middleware/inputValidation');
 
 const Weather = require('../models/weatherModel');
 const City = require('../models/cityModel');
 const WeatherForecast = require('../models/weatherForecastModel');
-const sequelize = require('../config/database');
 const Province = require('../models/provinceModel');
 
 // Core CRUD & Current
@@ -398,33 +396,6 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Public Cities endpoint (no authentication required)
-router.get('/cities', async (req, res) => {
-  try {
-    const cities = await City.findAll({
-      attributes: ['id', 'name_th', 'name_en', 'lat', 'lon', 'region'],
-      order: [['name_th', 'ASC']],
-    });
-
-    // Format cities for frontend compatibility
-    const formattedCities = cities.map((city) => ({
-      id: city.id,
-      name: city.name_th || city.name_en,
-      name_th: city.name_th,
-      name_en: city.name_en,
-      lat: city.lat,
-      lon: city.lon,
-      region: city.region,
-      status: 'Active', // Default status
-    }));
-
-    res.json(formattedCities);
-  } catch (error) {
-    console.error('Error fetching cities:', error);
-    res.status(500).json({ error: 'Failed to fetch cities' });
-  }
-});
-
 // Test endpoints for city weather API
 router.get('/test/:cityId', async (req, res) => {
   try {
@@ -480,15 +451,15 @@ router.get('/test/:cityId', async (req, res) => {
 });
 
 // ML Prediction
-router.post('/predict', validatePredictByCity, predictWeatherByCityId);
-router.post('/predict-by-location', validatePredictByLocation, predictWeatherByLatLon);
+router.post('/predict', predictWeatherByCityId);
+router.post('/predict-by-location', predictWeatherByLatLon);
 
 // LSTM Predictions from WeatherForecast table
 router.get('/predictions', getPredictions);
 router.get('/predictions/mock', getMockPredictions);
 
 // Tomorrow.io 7-day forecast
-router.get('/tomorrow', validateGet7DayTimeline, get7DayTimeline);
+router.get('/tomorrow', get7DayTimeline);
 
 // Unified GET /forecast for frontend compatibility
 router.get('/forecast', get7DayTimeline);
